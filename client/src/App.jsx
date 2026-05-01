@@ -14,6 +14,7 @@ import ReportsPage from './pages/ReportsPage'
 import SettingsPage from './pages/SettingsPage'
 import QuickBooksPage from './pages/QuickBooksPage'
 import SyncLogsPage from './pages/SyncLogsPage'
+import CompanyBrandingPage from './pages/CompanyBrandingPage'
 
 export default function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname)
@@ -41,7 +42,9 @@ export default function App() {
     if (currentPath === '/reports') return <ReportsPage />
     if (currentPath === '/integrations/quickbooks') return <QuickBooksPage />
     if (currentPath === '/sync-logs') return <SyncLogsPage />
+    if (currentPath === '/company-branding') return <CompanyBrandingPage />
     if (currentPath === '/settings' || currentPath === '/settings/integrations') return <SettingsPage />
+
     return <Dashboard />
   }, [currentPath])
 
@@ -51,9 +54,8 @@ export default function App() {
 
       <div className="ml-44 flex-1 flex flex-col max-lg:ml-0">
         <Topbar />
-        <main className="pt-14 flex-1 overflow-auto max-lg:pt-0">
-          {content}
-        </main>
+
+        <main className="pt-14 flex-1 overflow-auto max-lg:pt-0">{content}</main>
       </div>
     </div>
   )
