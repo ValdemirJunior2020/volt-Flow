@@ -1,5 +1,5 @@
 // client/src/services/quickbooksService.js
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1'
 
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -10,13 +10,13 @@ async function request(path, options = {}) {
     ...options,
   })
 
-  const payload = await response.json().catch(() => ({}))
+  const data = await response.json().catch(() => ({}))
 
   if (!response.ok) {
-    throw new Error(payload.message || payload.error || `Request failed: ${response.status}`)
+    throw new Error(data.message || data.error || 'Request failed')
   }
 
-  return payload
+  return data
 }
 
 export const quickbooksService = {
@@ -24,24 +24,20 @@ export const quickbooksService = {
     return request('/quickbooks/status')
   },
 
-  getConnectUrl() {
-    return request('/quickbooks/connect')
+  connect() {
+    window.location.href = `${API_BASE_URL}/quickbooks/connect`
   },
 
   disconnect() {
-    return request('/quickbooks/disconnect', { method: 'POST' })
+    return request('/quickbooks/disconnect', {
+      method: 'POST',
+    })
   },
 
   refreshToken() {
-    return request('/quickbooks/refresh-token', { method: 'POST' })
-  },
-
-  testConnection() {
-    return request('/quickbooks/test-connection', { method: 'POST' })
-  },
-
-  getCompanyInfo() {
-    return request('/quickbooks/company-info')
+    return request('/quickbooks/refresh-token', {
+      method: 'POST',
+    })
   },
 
   syncCustomers(direction = 'from-qbo') {
@@ -51,21 +47,30 @@ export const quickbooksService = {
     })
   },
 
-  syncInvoices(direction = 'from-qbo') {
+  syncInvoices(direction = 'to-qbo') {
     return request('/quickbooks/sync/invoices', {
       method: 'POST',
       body: JSON.stringify({ direction }),
     })
   },
 
-  syncPayments() {
-    return request('/quickbooks/sync/payments', { method: 'POST' })
-  },
-
   createInvoice(invoice) {
     return request('/quickbooks/invoices', {
       method: 'POST',
       body: JSON.stringify(invoice),
+    })
+  },
+
+  syncPayments() {
+    return request('/quickbooks/sync/payments', {
+      method: 'POST',
+    })
+  },
+
+  syncPayroll(payrollRun) {
+    return request('/quickbooks/payroll/sync-summary', {
+      method: 'POST',
+      body: JSON.stringify(payrollRun),
     })
   },
 

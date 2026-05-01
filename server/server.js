@@ -3,32 +3,63 @@ import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
-import pinoHttp from 'pino-http'
-import { env } from './src/config/env.js'
-import { logger } from './src/utils/logger.js'
-import { errorHandler, notFound } from './src/middleware/errorHandler.js'
-import { tenantContext } from './src/middleware/tenant.js'
-import apiRoutes from './src/routes/index.js'
+import dotenv from 'dotenv'
+
+import quickBooksRoutes from './src/routes/quickbooks.routes.js'
+import syncLogRoutes from './src/routes/syncLog.routes.js'
+import payrollRoutes from './src/routes/payroll.routes.js'
+
+dotenv.config()
 
 const app = express()
 
-app.set('trust proxy', 1)
+const PORT = process.env.SERVER_PORT || 5000
+const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173'
+
+app.use(
+  cors({
+    origin: CLIENT_URL,
+    credentials: true,
+  })
+)
+
 app.use(helmet())
-app.use(cors({ origin: env.clientUrl, credentials: true }))
-app.use(express.json({ limit: '1mb' }))
-app.use(express.urlencoded({ extended: true }))
-app.use(pinoHttp({ logger }))
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 300, standardHeaders: true, legacyHeaders: false }))
-app.use(tenantContext)
+app.use(express.json({ limit: '10mb' }))
+
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 300,
+  })
+)
 
 app.get('/', (req, res) => {
-  res.json({ success: true, message: 'VoltFlow QuickBooks API is running.', docs: '/api/v1/health' })
+  res.json({
+    app: 'VoltFlow API',
+    status: 'running',
+    payrollNotice:
+      'VoltFlow prepares payroll summaries and estimates. Actual payroll/tax filing requires QuickBooks Payroll or an approved payroll provider.',
+  })
 })
 
-app.use('/api/v1', apiRoutes)
-app.use(notFound)
-app.use(errorHandler)
+app.use('/api/v1/quickbooks', quickBooksRoutes)
+app.use('/api/v1/quickbooks/payroll', payrollRoutes)
+app.use('/api/v1/sync-logs', syncLogRoutes)
 
-app.listen(env.port, () => {
-  logger.info(`VoltFlow server running on http://localhost:${env.port}`)
+app.use((req, res) => {
+  res.status(404).json({
+    message: 'Route not found',
+  })
+})
+
+app.use((error, req, res, next) => {
+  console.error(error)
+
+  res.status(error.status || 500).json({
+    message: error.message || 'Internal server error',
+  })
+})
+
+app.listen(PORT, () => {
+  console.log(`VoltFlow server running on http://localhost:${PORT}`)
 })
