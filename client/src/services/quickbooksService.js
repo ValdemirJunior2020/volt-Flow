@@ -67,7 +67,7 @@ export const quickbooksService = {
     })
   },
 
-  syncPayroll(payrollRun) {
+  savePayrollSummary(payrollRun) {
     return request('/quickbooks/payroll/sync-summary', {
       method: 'POST',
       body: JSON.stringify(payrollRun),

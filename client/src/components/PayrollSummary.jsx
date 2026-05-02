@@ -1,7 +1,20 @@
-import React from 'react'
-import { Zap } from 'lucide-react'
+// client/src/components/PayrollSummary.jsx
+import React, { useState } from 'react'
+import { Loader2, Zap } from 'lucide-react'
 
 export default function PayrollSummary() {
+  const [loading, setLoading] = useState(false)
+
+  function goToPayrollPage() {
+    setLoading(true)
+
+    setTimeout(() => {
+      window.history.pushState({}, '', '/payroll')
+      window.dispatchEvent(new PopStateEvent('popstate'))
+      setLoading(false)
+    }, 300)
+  }
+
   return (
     <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
       <div className="flex items-center justify-between mb-3">
@@ -21,11 +34,19 @@ export default function PayrollSummary() {
 
       <div className="flex items-center justify-between mb-3">
         <span className="text-[11px] text-slate-600">14 Employees</span>
-        <span className="bg-amber-100 text-amber-600 text-[9px] font-semibold px-2 py-0.5 rounded-full">Awaiting Approval</span>
+        <span className="bg-amber-100 text-amber-600 text-[9px] font-semibold px-2 py-0.5 rounded-full">
+          Awaiting Approval
+        </span>
       </div>
 
-      <button className="w-full bg-[#0f1c2e] hover:bg-[#1a2a3f] text-white text-xs font-semibold py-2.5 rounded-lg transition-colors">
-        Run Payroll
+      <button
+        type="button"
+        onClick={goToPayrollPage}
+        disabled={loading}
+        className="w-full bg-[#0f1c2e] hover:bg-[#1a2a3f] text-white text-xs font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+      >
+        {loading && <Loader2 size={14} className="animate-spin" />}
+        {loading ? 'Opening Payroll...' : 'Run Payroll'}
       </button>
     </div>
   )

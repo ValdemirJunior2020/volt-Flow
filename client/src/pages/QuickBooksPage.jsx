@@ -1,200 +1,263 @@
 // client/src/pages/QuickBooksPage.jsx
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, Clock3, CloudCog, FileText, Loader2, PlugZap, RefreshCw, ShieldCheck, Unplug, XCircle } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import PageHeader from '../components/business/PageHeader'
+import KpiCard from '../components/business/KpiCard'
+import {
+  AlertTriangle,
+  Building2,
+  CheckCircle2,
+  Loader2,
+  PlugZap,
+  RefreshCcw,
+  ShieldCheck,
+  XCircle,
+} from 'lucide-react'
 import { quickbooksService } from '../services/quickbooksService'
 
-const emptyInvoice = {
-  customerName: 'Bright Home Services',
-  customerEmail: 'billing@example.com',
-  jobId: 'JOB-1004',
-  technician: 'Mike R.',
-  serviceDate: new Date().toISOString().slice(0, 10),
-  taxRate: 0.07,
-  lines: [
-    { name: 'Electrical service labor', description: 'Panel diagnostic and repair', quantity: 2, unitPrice: 125, type: 'labor' },
-    { name: 'Breaker materials', description: 'Replacement breaker and connectors', quantity: 1, unitPrice: 95, type: 'materials' },
-  ],
-}
-
-function StatusBadge({ status }) {
-  const styles = {
-    connected: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    disconnected: 'bg-slate-50 text-slate-600 border-slate-200',
-    token_expired: 'bg-amber-50 text-amber-700 border-amber-200',
-    error: 'bg-rose-50 text-rose-700 border-rose-200',
-  }
-
-  return <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold ${styles[status] || styles.disconnected}`}>{status?.replace('_', ' ') || 'disconnected'}</span>
-}
-
 export default function QuickBooksPage() {
-  const [status, setStatus] = useState(null)
-  const [logs, setLogs] = useState([])
+  const [status, setStatus] = useState({
+    connected: false,
+    companyName: null,
+    realmId: null,
+    lastSyncAt: null,
+  })
   const [loading, setLoading] = useState(true)
-  const [actionLoading, setActionLoading] = useState('')
-  const [notice, setNotice] = useState(null)
+  const [working, setWorking] = useState(false)
+  const [message, setMessage] = useState('')
 
-  const connected = status?.status === 'connected'
-  const maskedRealm = useMemo(() => {
-    if (!status?.realmId) return 'Not connected'
-    return `${status.realmId.slice(0, 4)}••••${status.realmId.slice(-4)}`
-  }, [status])
+  useEffect(() => {
+    loadStatus()
+  }, [])
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
+  async function loadStatus() {
     try {
-      const [statusPayload, logPayload] = await Promise.all([
-        quickbooksService.getStatus(),
-        quickbooksService.getSyncLogs({ limit: 5 }),
-      ])
-      setStatus(statusPayload.data)
-      setLogs(logPayload.data.items || [])
+      setLoading(true)
+      const result = await quickbooksService.getStatus()
+      setStatus(result.status || result)
     } catch (error) {
-      setNotice({ type: 'error', message: error.message })
+      setMessage(error.message || 'Unable to load QuickBooks status.')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }
 
-  useEffect(() => {
-    loadData()
-  }, [loadData])
+  function handleConnect() {
+    quickbooksService.connect()
+  }
 
-  async function runAction(name, handler) {
-    setActionLoading(name)
-    setNotice(null)
+  async function handleDisconnect() {
     try {
-      const result = await handler()
-      setNotice({ type: 'success', message: result.message || `${name} completed successfully.` })
-      await loadData()
+      setWorking(true)
+      await quickbooksService.disconnect()
+      setMessage('QuickBooks disconnected.')
+      await loadStatus()
     } catch (error) {
-      setNotice({ type: 'error', message: error.message })
+      setMessage(error.message || 'Unable to disconnect QuickBooks.')
     } finally {
-      setActionLoading('')
+      setWorking(false)
     }
   }
 
-  async function connectQuickBooks() {
-    await runAction('connect', async () => {
-      const payload = await quickbooksService.getConnectUrl()
-      window.location.href = payload.data.authorizationUrl
-      return { message: 'Redirecting to QuickBooks...' }
-    })
+  async function handleRefreshToken() {
+    try {
+      setWorking(true)
+      await quickbooksService.refreshToken()
+      setMessage('QuickBooks token refreshed.')
+      await loadStatus()
+    } catch (error) {
+      setMessage(error.message || 'Unable to refresh QuickBooks token.')
+    } finally {
+      setWorking(false)
+    }
   }
 
-  const buttonBase = 'inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-60'
+  async function handleSyncCustomers() {
+    try {
+      setWorking(true)
+      await quickbooksService.syncCustomers('from-qbo')
+      setMessage('Customers synced from QuickBooks.')
+      await loadStatus()
+    } catch (error) {
+      setMessage(error.message || 'Customer sync failed.')
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  async function handleSyncInvoices() {
+    try {
+      setWorking(true)
+      await quickbooksService.syncInvoices('to-qbo')
+      setMessage('Invoices synced to QuickBooks.')
+      await loadStatus()
+    } catch (error) {
+      setMessage(error.message || 'Invoice sync failed.')
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  function maskRealmId(realmId) {
+    if (!realmId) return 'Not connected'
+    const value = String(realmId)
+    return `${value.slice(0, 4)}••••${value.slice(-4)}`
+  }
 
   return (
     <div className="p-4 sm:p-5 space-y-5">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Settings / Integrations</p>
-          <h1 className="text-2xl font-bold text-slate-900">QuickBooks Online</h1>
-          <p className="text-sm text-slate-500 mt-1">Connect VoltFlow invoices, customers, payments, jobs, labor, and materials to QuickBooks Online.</p>
-        </div>
-        <button onClick={loadData} className={`${buttonBase} bg-white border border-slate-200 text-slate-700 hover:bg-slate-50`}>
-          <RefreshCw size={14} /> Refresh status
-        </button>
-      </div>
+      <PageHeader
+        eyebrow="Accounting Integration"
+        title="QuickBooks Online"
+        description="Let each client connect their own QuickBooks company. VoltFlow never exposes client secrets or raw tokens to the browser."
+        primaryLabel="Connect QuickBooks"
+        secondaryLabel="Refresh Status"
+        onPrimaryClick={handleConnect}
+        onSecondaryClick={loadStatus}
+      />
 
-      {notice && (
-        <div className={`rounded-xl border p-4 text-sm font-medium ${notice.type === 'error' ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
-          {notice.message}
+      <section className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
+        <div className="flex gap-3">
+          <ShieldCheck className="mt-0.5 text-blue-700" size={20} />
+          <div>
+            <h3 className="font-black text-blue-900">Client-Owned QuickBooks Connection</h3>
+            <p className="mt-1 text-sm font-semibold text-blue-800">
+              Your client clicks Connect QuickBooks, signs in to their own Intuit account,
+              chooses their company, and authorizes VoltFlow. Your app stores the connection on
+              the backend and uses it only for approved sync actions.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {message && (
+        <div
+          className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${
+            message.toLowerCase().includes('failed') ||
+            message.toLowerCase().includes('unable')
+              ? 'border-red-200 bg-red-50 text-red-700'
+              : 'border-green-200 bg-green-50 text-green-700'
+          }`}
+        >
+          {message}
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <section className="xl:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="h-11 w-11 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-700">
-                <PlugZap size={22} />
-              </div>
-              <div>
-                <h2 className="font-bold text-slate-900">QuickBooks Online Connection</h2>
-                <p className="text-xs text-slate-500">OAuth 2.0 secure backend-only token flow</p>
-              </div>
-            </div>
-            {loading ? <Loader2 className="animate-spin text-slate-400" size={20} /> : <StatusBadge status={status?.status} />}
-          </div>
-
-          <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="rounded-xl bg-slate-50 p-4">
-              <p className="text-xs text-slate-400 font-semibold">Company</p>
-              <p className="text-sm font-bold text-slate-800 mt-1">{status?.companyName || 'Not connected'}</p>
-            </div>
-            <div className="rounded-xl bg-slate-50 p-4">
-              <p className="text-xs text-slate-400 font-semibold">Realm ID</p>
-              <p className="text-sm font-bold text-slate-800 mt-1">{maskedRealm}</p>
-            </div>
-            <div className="rounded-xl bg-slate-50 p-4">
-              <p className="text-xs text-slate-400 font-semibold">Last Sync</p>
-              <p className="text-sm font-bold text-slate-800 mt-1">{status?.lastSyncAt ? new Date(status.lastSyncAt).toLocaleString() : 'Never'}</p>
-            </div>
-          </div>
-
-          <div className="px-5 pb-5 flex flex-wrap gap-2">
-            {!connected ? (
-              <button disabled={!!actionLoading} onClick={connectQuickBooks} className={`${buttonBase} bg-[#0f1c2e] text-white hover:bg-[#1a2a3f]`}>
-                {actionLoading === 'connect' ? <Loader2 size={14} className="animate-spin" /> : <PlugZap size={14} />} Connect to QuickBooks
-              </button>
-            ) : (
-              <button disabled={!!actionLoading} onClick={() => runAction('disconnect', quickbooksService.disconnect)} className={`${buttonBase} bg-rose-50 text-rose-700 hover:bg-rose-100`}>
-                {actionLoading === 'disconnect' ? <Loader2 size={14} className="animate-spin" /> : <Unplug size={14} />} Disconnect
-              </button>
-            )}
-            <button disabled={!!actionLoading} onClick={() => runAction('refresh-token', quickbooksService.refreshToken)} className={`${buttonBase} bg-amber-50 text-amber-700 hover:bg-amber-100`}>
-              <Clock3 size={14} /> Refresh Token
-            </button>
-            <button disabled={!!actionLoading} onClick={() => runAction('test', quickbooksService.testConnection)} className={`${buttonBase} bg-emerald-50 text-emerald-700 hover:bg-emerald-100`}>
-              <ShieldCheck size={14} /> Test Connection
-            </button>
-          </div>
-        </section>
-
-        <aside className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-          <h3 className="font-bold text-slate-900">Sync Actions</h3>
-          <p className="text-xs text-slate-500 mt-1">Run manual syncs and create a sample invoice in QuickBooks.</p>
-          <div className="mt-4 space-y-2">
-            <button disabled={!!actionLoading} onClick={() => runAction('customers', () => quickbooksService.syncCustomers('from-qbo'))} className={`${buttonBase} w-full bg-slate-900 text-white hover:bg-slate-800`}><CloudCog size={14} /> Sync Customers</button>
-            <button disabled={!!actionLoading} onClick={() => runAction('invoices', () => quickbooksService.syncInvoices('from-qbo'))} className={`${buttonBase} w-full bg-slate-900 text-white hover:bg-slate-800`}><FileText size={14} /> Sync Invoices</button>
-            <button disabled={!!actionLoading} onClick={() => runAction('payments', quickbooksService.syncPayments)} className={`${buttonBase} w-full bg-slate-900 text-white hover:bg-slate-800`}><CheckCircle2 size={14} /> Sync Payments</button>
-            <button disabled={!!actionLoading} onClick={() => runAction('create-invoice', () => quickbooksService.createInvoice(emptyInvoice))} className={`${buttonBase} w-full bg-[#f5d000] text-[#0f1c2e] hover:bg-yellow-300`}><FileText size={14} /> Create Invoice in QuickBooks</button>
-          </div>
-        </aside>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <KpiCard
+          icon={status.connected ? CheckCircle2 : XCircle}
+          label="Connection"
+          value={loading ? 'Loading...' : status.connected ? 'Connected' : 'Disconnected'}
+          sub="QuickBooks Online"
+        />
+        <KpiCard
+          icon={Building2}
+          label="Company"
+          value={status.companyName || 'Not connected'}
+          sub="Client company"
+        />
+        <KpiCard
+          icon={PlugZap}
+          label="Realm ID"
+          value={maskRealmId(status.realmId)}
+          sub="Masked company ID"
+        />
+        <KpiCard
+          icon={RefreshCcw}
+          label="Last Sync"
+          value={status.lastSyncAt || 'Never'}
+          sub="Latest sync action"
+        />
       </div>
 
-      <section className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+      <section className="rounded-2xl bg-white border border-slate-100 shadow-sm p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="font-bold text-slate-900">Recent Sync History</h2>
-            <p className="text-xs text-slate-500">Latest QuickBooks API activity</p>
+            <h2 className="text-xl font-black text-slate-900">QuickBooks Connection</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Connect, refresh, disconnect, and run manual accounting syncs.
+            </p>
+          </div>
+
+          <div
+            className={`rounded-full px-3 py-1 text-xs font-black ${
+              status.connected
+                ? 'bg-green-100 text-green-700'
+                : 'bg-slate-100 text-slate-600'
+            }`}
+          >
+            {status.connected ? 'Connected' : 'Disconnected'}
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
-              <tr>
-                <th className="px-5 py-3 text-left">Time</th>
-                <th className="px-5 py-3 text-left">Action</th>
-                <th className="px-5 py-3 text-left">Status</th>
-                <th className="px-5 py-3 text-left">Message</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.length === 0 ? (
-                <tr><td colSpan="4" className="px-5 py-6 text-center text-slate-400">No sync logs yet.</td></tr>
-              ) : logs.map((log) => (
-                <tr key={log.id} className="border-t border-slate-100">
-                  <td className="px-5 py-3 text-slate-500 whitespace-nowrap">{new Date(log.timestamp).toLocaleString()}</td>
-                  <td className="px-5 py-3 font-semibold text-slate-800">{log.action}</td>
-                  <td className="px-5 py-3">{log.status === 'success' ? <span className="inline-flex items-center gap-1 text-emerald-700"><CheckCircle2 size={14}/> success</span> : <span className="inline-flex items-center gap-1 text-rose-700"><XCircle size={14}/> {log.status}</span>}</td>
-                  <td className="px-5 py-3 text-slate-500">{log.message}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+        {!status.connected && (
+          <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <div className="flex gap-3">
+              <AlertTriangle className="mt-0.5 text-amber-700" size={20} />
+              <div>
+                <h3 className="font-black text-amber-900">QuickBooks Not Connected</h3>
+                <p className="mt-1 text-sm font-semibold text-amber-800">
+                  Click Connect QuickBooks. Your client will log in with their own Intuit account.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+          <button
+            type="button"
+            onClick={handleConnect}
+            disabled={working}
+            className="rounded-xl bg-[#0f1c2e] px-4 py-3 text-sm font-black text-white disabled:opacity-60"
+          >
+            {status.connected ? 'Reconnect QuickBooks' : 'Connect QuickBooks'}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleRefreshToken}
+            disabled={!status.connected || working}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 disabled:opacity-60"
+          >
+            Refresh Token
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSyncCustomers}
+            disabled={!status.connected || working}
+            className="rounded-xl bg-[#f5d000] px-4 py-3 text-sm font-black text-[#0f1c2e] disabled:opacity-60"
+          >
+            Sync Customers
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSyncInvoices}
+            disabled={!status.connected || working}
+            className="rounded-xl bg-[#f5d000] px-4 py-3 text-sm font-black text-[#0f1c2e] disabled:opacity-60"
+          >
+            Sync Invoices
+          </button>
         </div>
+
+        {status.connected && (
+          <button
+            type="button"
+            onClick={handleDisconnect}
+            disabled={working}
+            className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-black text-red-700 disabled:opacity-60"
+          >
+            Disconnect QuickBooks
+          </button>
+        )}
+
+        {working && (
+          <div className="mt-4 flex items-center gap-2 text-sm font-semibold text-slate-600">
+            <Loader2 size={16} className="animate-spin" />
+            Working...
+          </div>
+        )}
       </section>
     </div>
   )

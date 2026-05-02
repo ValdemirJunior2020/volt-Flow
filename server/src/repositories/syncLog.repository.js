@@ -20,11 +20,36 @@ async function ensureDataFile() {
   }
 }
 
-export async function getSyncLogs(filters = {}) {
+async function readLogsFile() {
   await ensureDataFile()
 
-  const raw = await fs.readFile(SYNC_LOG_FILE, 'utf8')
-  let logs = JSON.parse(raw || '[]')
+  try {
+    const raw = await fs.readFile(SYNC_LOG_FILE, 'utf8')
+    const parsed = JSON.parse(raw || '[]')
+
+    if (Array.isArray(parsed)) {
+      return parsed
+    }
+
+    if (parsed && Array.isArray(parsed.logs)) {
+      return parsed.logs
+    }
+
+    return []
+  } catch (error) {
+    console.error('Failed to read syncLogs.json. Resetting to empty array.', error)
+    await fs.writeFile(SYNC_LOG_FILE, JSON.stringify([], null, 2))
+    return []
+  }
+}
+
+async function writeLogsFile(logs) {
+  const safeLogs = Array.isArray(logs) ? logs : []
+  await fs.writeFile(SYNC_LOG_FILE, JSON.stringify(safeLogs, null, 2))
+}
+
+export async function getSyncLogs(filters = {}) {
+  let logs = await readLogsFile()
 
   if (filters.status) {
     logs = logs.filter(
@@ -60,10 +85,7 @@ export async function getSyncLogs(filters = {}) {
 }
 
 export async function addSyncLog(log = {}) {
-  await ensureDataFile()
-
-  const raw = await fs.readFile(SYNC_LOG_FILE, 'utf8')
-  const logs = JSON.parse(raw || '[]')
+  const logs = await readLogsFile()
 
   const newLog = {
     id: crypto.randomUUID(),
@@ -81,16 +103,13 @@ export async function addSyncLog(log = {}) {
 
   logs.unshift(newLog)
 
-  await fs.writeFile(SYNC_LOG_FILE, JSON.stringify(logs, null, 2))
+  await writeLogsFile(logs)
 
   return newLog
 }
 
 export async function updateSyncLog(id, updates = {}) {
-  await ensureDataFile()
-
-  const raw = await fs.readFile(SYNC_LOG_FILE, 'utf8')
-  const logs = JSON.parse(raw || '[]')
+  const logs = await readLogsFile()
 
   const updatedLogs = logs.map((log) =>
     log.id === id
@@ -102,14 +121,13 @@ export async function updateSyncLog(id, updates = {}) {
       : log
   )
 
-  await fs.writeFile(SYNC_LOG_FILE, JSON.stringify(updatedLogs, null, 2))
+  await writeLogsFile(updatedLogs)
 
   return updatedLogs.find((log) => log.id === id) || null
 }
 
 export async function clearSyncLogs() {
-  await ensureDataFile()
-  await fs.writeFile(SYNC_LOG_FILE, JSON.stringify([], null, 2))
+  await writeLogsFile([])
   return []
 }
 
