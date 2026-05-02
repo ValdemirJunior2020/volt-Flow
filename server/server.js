@@ -13,12 +13,24 @@ dotenv.config()
 
 const app = express()
 
-const PORT = process.env.SERVER_PORT || 5000
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173'
+const PORT = process.env.PORT || process.env.SERVER_PORT || 5000
+const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000'
 
 app.use(
   cors({
-    origin: CLIENT_URL,
+    origin(origin, callback) {
+      const allowedOrigins = [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        CLIENT_URL,
+      ]
+
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true)
+      } else {
+        callback(new Error(`CORS blocked for origin: ${origin}`))
+      }
+    },
     credentials: true,
   })
 )
@@ -35,10 +47,8 @@ app.use(
 
 app.get('/', (req, res) => {
   res.json({
-    app: 'VoltFlow API',
+    app: 'SparkOps API',
     status: 'running',
-    payrollNotice:
-      'VoltFlow prepares payroll summaries and estimates. Actual payroll/tax filing requires QuickBooks Payroll or an approved payroll provider.',
   })
 })
 
@@ -61,5 +71,5 @@ app.use((error, req, res, next) => {
 })
 
 app.listen(PORT, () => {
-  console.log(`VoltFlow server running on http://localhost:${PORT}`)
+  console.log(`SparkOps server running on port ${PORT}`)
 })
