@@ -3,6 +3,8 @@ import React, { useEffect, useMemo, useState } from 'react'
 import Sidebar from './components/Sidebar'
 import Topbar from './components/Topbar'
 import Dashboard from './pages/Dashboard'
+// client/src/App.jsx
+import SubscriptionPage from './pages/SubscriptionPage'
 import JobsPage from './pages/JobsPage'
 import SchedulingPage from './pages/SchedulingPage'
 import InvoicesPage from './pages/InvoicesPage'
@@ -33,6 +35,7 @@ export default function App() {
   const content = useMemo(() => {
     if (currentPath === '/' || currentPath === '/dashboard') return <Dashboard />
     if (currentPath === '/jobs') return <JobsPage />
+    if (currentPath === '/subscription' || currentPath === '/pricing') return <SubscriptionPage />
     if (currentPath === '/scheduling') return <SchedulingPage />
     if (currentPath === '/invoices') return <InvoicesPage />
     if (currentPath === '/customers') return <CustomersPage />

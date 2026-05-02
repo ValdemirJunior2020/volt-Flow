@@ -1,5 +1,7 @@
 // client/src/components/Sidebar.jsx
 import React from 'react'
+// client/src/components/Sidebar.jsx
+import { CreditCard } from 'lucide-react'
 import {
   LayoutDashboard,
   Briefcase,
@@ -19,6 +21,7 @@ import {
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+  { icon: CreditCard, label: 'Subscription', path: '/subscription' },
   { icon: Briefcase, label: 'Jobs', path: '/jobs' },
   { icon: Calendar, label: 'Scheduling', path: '/scheduling' },
   { icon: FileText, label: 'Invoices', path: '/invoices' },

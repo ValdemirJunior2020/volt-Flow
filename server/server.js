@@ -8,6 +8,8 @@ import dotenv from 'dotenv'
 import quickBooksRoutes from './src/routes/quickbooks.routes.js'
 import syncLogRoutes from './src/routes/syncLog.routes.js'
 import payrollRoutes from './src/routes/payroll.routes.js'
+import paypalRoutes from './src/routes/paypal.routes.js'
+import subscriptionRoutes from './src/routes/subscription.routes.js'
 
 dotenv.config()
 
@@ -47,7 +49,7 @@ app.use(
 
 app.get('/', (req, res) => {
   res.json({
-    app: 'SparkOps API',
+    app: 'Fieldora Pro API',
     status: 'running',
   })
 })
@@ -55,6 +57,8 @@ app.get('/', (req, res) => {
 app.use('/api/v1/quickbooks', quickBooksRoutes)
 app.use('/api/v1/quickbooks/payroll', payrollRoutes)
 app.use('/api/v1/sync-logs', syncLogRoutes)
+app.use('/api/v1/paypal', paypalRoutes)
+app.use('/api/v1/subscription', subscriptionRoutes)
 
 app.use((req, res) => {
   res.status(404).json({
@@ -71,5 +75,5 @@ app.use((error, req, res, next) => {
 })
 
 app.listen(PORT, () => {
-  console.log(`SparkOps server running on port ${PORT}`)
+  console.log(`Fieldora Pro server running on port ${PORT}`)
 })
