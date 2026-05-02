@@ -1,111 +1,104 @@
 // server/src/controllers/paypal.controller.js
 import {
-  createPayPalSubscription,
+  capturePayPalOrder,
+  createOneTimePayPalOrder,
   getPayPalPublicConfig,
-  getPayPalSubscription,
 } from '../services/paypal.service.js'
-import { saveSubscription } from '../repositories/subscription.repository.js'
+import { savePaidAccess } from '../repositories/subscription.repository.js'
 import { addSyncLog } from '../repositories/syncLog.repository.js'
 
 const DEFAULT_USER_ID = process.env.APP_DEFAULT_USER_ID || 'demo-user-001'
 const DEFAULT_COMPANY_ID = process.env.APP_DEFAULT_COMPANY_ID || 'demo-company-001'
 
-function extractPayerEmail(paypalSubscription) {
+function extractPayerEmail(capture) {
   return (
-    paypalSubscription?.subscriber?.email_address ||
-    paypalSubscription?.subscriber?.payer_id ||
+    capture?.payer?.email_address ||
+    capture?.payment_source?.paypal?.email_address ||
     null
   )
 }
 
-function extractNextBillingTime(paypalSubscription) {
-  return paypalSubscription?.billing_info?.next_billing_time || null
-}
-
 export async function getPayPalConfig(req, res, next) {
   try {
-    const config = getPayPalPublicConfig()
-
     return res.json({
       success: true,
-      config,
+      config: getPayPalPublicConfig(),
     })
   } catch (error) {
     next(error)
   }
 }
 
-export async function createSubscription(req, res, next) {
+export async function createCheckoutOrder(req, res, next) {
   try {
-    const subscription = await createPayPalSubscription()
-
-    await saveSubscription({
-      userId: DEFAULT_USER_ID,
-      companyId: DEFAULT_COMPANY_ID,
-      subscriptionId: subscription.subscriptionId,
-      planId: process.env.PAYPAL_PLAN_ID,
-      status: subscription.status || 'APPROVAL_PENDING',
-      raw: subscription.raw,
-    })
+    const order = await createOneTimePayPalOrder()
 
     await addSyncLog({
-      action: 'PAYPAL_SUBSCRIPTION_CREATED',
+      action: 'PAYPAL_ORDER_CREATED',
       status: 'SUCCESS',
       source: 'PayPal',
-      message: 'PayPal subscription created and awaiting approval.',
+      message: 'PayPal $500 checkout order created for 4 months access.',
       localId: DEFAULT_USER_ID,
-      qbId: subscription.subscriptionId,
-      metadata: subscription.raw,
+      qbId: order.orderId,
+      metadata: order.raw,
     })
 
     return res.status(201).json({
       success: true,
-      message: 'PayPal subscription created.',
-      subscription,
+      message: 'PayPal checkout order created.',
+      order,
     })
   } catch (error) {
     next(error)
   }
 }
 
-export async function confirmSubscription(req, res, next) {
+export async function captureCheckoutOrder(req, res, next) {
   try {
-    const { subscriptionId } = req.body
+    const { orderId } = req.body
 
-    if (!subscriptionId) {
+    if (!orderId) {
       return res.status(400).json({
         success: false,
-        message: 'Missing subscriptionId.',
+        message: 'Missing orderId.',
       })
     }
 
-    const paypalSubscription = await getPayPalSubscription(subscriptionId)
+    const capture = await capturePayPalOrder(orderId)
 
-    const savedSubscription = await saveSubscription({
+    if (capture.status !== 'COMPLETED') {
+      return res.status(400).json({
+        success: false,
+        message: `PayPal payment not completed. Current status: ${capture.status}`,
+        capture,
+      })
+    }
+
+    const subscription = await savePaidAccess({
       userId: DEFAULT_USER_ID,
       companyId: DEFAULT_COMPANY_ID,
-      subscriptionId,
-      planId: process.env.PAYPAL_PLAN_ID,
-      status: paypalSubscription.status || 'UNKNOWN',
-      payerEmail: extractPayerEmail(paypalSubscription),
-      nextBillingTime: extractNextBillingTime(paypalSubscription),
-      raw: paypalSubscription,
+      orderId,
+      payerEmail: extractPayerEmail(capture),
+      raw: capture,
     })
 
     await addSyncLog({
-      action: 'PAYPAL_SUBSCRIPTION_CONFIRMED',
+      action: 'PAYPAL_PAYMENT_CAPTURED',
       status: 'SUCCESS',
       source: 'PayPal',
-      message: `PayPal subscription confirmed with status ${savedSubscription.status}.`,
+      message: '$500 payment captured. Full access unlocked for 4 months.',
       localId: DEFAULT_USER_ID,
-      qbId: subscriptionId,
-      metadata: paypalSubscription,
+      qbId: orderId,
+      metadata: {
+        capture,
+        subscription,
+      },
     })
 
     return res.json({
       success: true,
-      message: 'PayPal subscription confirmed.',
-      subscription: savedSubscription,
+      message: 'Payment complete. Full access unlocked for 4 months.',
+      subscription,
     })
   } catch (error) {
     next(error)
@@ -115,47 +108,13 @@ export async function confirmSubscription(req, res, next) {
 export async function paypalWebhook(req, res, next) {
   try {
     const event = req.body
-    const eventType = event?.event_type
-    const resource = event?.resource || {}
-    const subscriptionId = resource?.id || resource?.billing_agreement_id || null
-
-    let status = null
-
-    if (eventType === 'BILLING.SUBSCRIPTION.ACTIVATED') {
-      status = 'ACTIVE'
-    }
-
-    if (eventType === 'BILLING.SUBSCRIPTION.CANCELLED') {
-      status = 'CANCELLED'
-    }
-
-    if (eventType === 'BILLING.SUBSCRIPTION.SUSPENDED') {
-      status = 'SUSPENDED'
-    }
-
-    if (eventType === 'BILLING.SUBSCRIPTION.EXPIRED') {
-      status = 'EXPIRED'
-    }
-
-    if (status && subscriptionId) {
-      await saveSubscription({
-        userId: DEFAULT_USER_ID,
-        companyId: DEFAULT_COMPANY_ID,
-        subscriptionId,
-        planId: process.env.PAYPAL_PLAN_ID,
-        status,
-        lastWebhookAt: new Date().toISOString(),
-        raw: event,
-      })
-    }
 
     await addSyncLog({
       action: 'PAYPAL_WEBHOOK_RECEIVED',
       status: 'SUCCESS',
       source: 'PayPal',
-      message: `PayPal webhook received: ${eventType || 'UNKNOWN_EVENT'}.`,
+      message: `PayPal webhook received: ${event?.event_type || 'UNKNOWN_EVENT'}.`,
       localId: DEFAULT_USER_ID,
-      qbId: subscriptionId,
       metadata: event,
     })
 

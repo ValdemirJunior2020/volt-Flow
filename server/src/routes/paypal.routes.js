@@ -1,8 +1,8 @@
 // server/src/routes/paypal.routes.js
 import express from 'express'
 import {
-  confirmSubscription,
-  createSubscription,
+  captureCheckoutOrder,
+  createCheckoutOrder,
   getPayPalConfig,
   paypalWebhook,
 } from '../controllers/paypal.controller.js'
@@ -10,8 +10,8 @@ import {
 const router = express.Router()
 
 router.get('/config', getPayPalConfig)
-router.post('/create-subscription', createSubscription)
-router.post('/confirm-subscription', confirmSubscription)
+router.post('/create-order', createCheckoutOrder)
+router.post('/capture-order', captureCheckoutOrder)
 router.post('/webhook', paypalWebhook)
 
 export default router

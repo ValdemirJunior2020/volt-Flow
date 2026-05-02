@@ -24,16 +24,16 @@ export const subscriptionService = {
     return request('/paypal/config')
   },
 
-  createSubscriptionRedirect() {
-    return request('/paypal/create-subscription', {
+  createOrder() {
+    return request('/paypal/create-order', {
       method: 'POST',
     })
   },
 
-  confirmSubscription(subscriptionId) {
-    return request('/paypal/confirm-subscription', {
+  captureOrder(orderId) {
+    return request('/paypal/capture-order', {
       method: 'POST',
-      body: JSON.stringify({ subscriptionId }),
+      body: JSON.stringify({ orderId }),
     })
   },
 

@@ -2,20 +2,17 @@
 import axios from 'axios'
 
 function getPayPalBaseUrl() {
-  const environment = process.env.PAYPAL_ENVIRONMENT || 'sandbox'
-
-  return environment === 'production'
+  return process.env.PAYPAL_ENVIRONMENT === 'production'
     ? 'https://api-m.paypal.com'
     : 'https://api-m.sandbox.paypal.com'
 }
 
 export function getPayPalPublicConfig() {
   return {
-    clientId: process.env.PAYPAL_CLIENT_ID || '',
-    planId: process.env.PAYPAL_PLAN_ID || '',
     environment: process.env.PAYPAL_ENVIRONMENT || 'sandbox',
-    amount: 150,
+    amount: 500,
     currency: 'USD',
+    accessLength: '4 months',
   }
 }
 
@@ -49,70 +46,27 @@ export async function getPayPalAccessToken() {
   return response.data.access_token
 }
 
-export async function getPayPalSubscription(subscriptionId) {
-  if (!subscriptionId) {
-    throw new Error('Missing PayPal subscription ID.')
-  }
-
-  const accessToken = await getPayPalAccessToken()
-
-  const response = await axios.get(
-    `${getPayPalBaseUrl()}/v1/billing/subscriptions/${subscriptionId}`,
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    }
-  )
-
-  return response.data
-}
-
-export async function cancelPayPalSubscription(subscriptionId, reason = 'Cancelled by user') {
-  if (!subscriptionId) {
-    throw new Error('Missing PayPal subscription ID.')
-  }
-
-  const accessToken = await getPayPalAccessToken()
-
-  await axios.post(
-    `${getPayPalBaseUrl()}/v1/billing/subscriptions/${subscriptionId}/cancel`,
-    {
-      reason,
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    }
-  )
-
-  return {
-    success: true,
-  }
-}
-
-export async function createPayPalSubscription() {
-  const planId = process.env.PAYPAL_PLAN_ID
-
-  if (!planId) {
-    throw new Error('Missing PAYPAL_PLAN_ID in server environment variables.')
-  }
-
+export async function createOneTimePayPalOrder() {
   const accessToken = await getPayPalAccessToken()
   const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000'
 
   const response = await axios.post(
-    `${getPayPalBaseUrl()}/v1/billing/subscriptions`,
+    `${getPayPalBaseUrl()}/v2/checkout/orders`,
     {
-      plan_id: planId,
+      intent: 'CAPTURE',
+      purchase_units: [
+        {
+          description: 'Fieldora Pro - 4 Months Full Access',
+          amount: {
+            currency_code: 'USD',
+            value: '500.00',
+          },
+        },
+      ],
       application_context: {
         brand_name: 'Fieldora Pro',
-        locale: 'en-US',
-        shipping_preference: 'NO_SHIPPING',
-        user_action: 'SUBSCRIBE_NOW',
+        landing_page: 'LOGIN',
+        user_action: 'PAY_NOW',
         return_url: `${clientUrl}/subscription?paypal=success`,
         cancel_url: `${clientUrl}/subscription?paypal=cancelled`,
       },
@@ -128,9 +82,30 @@ export async function createPayPalSubscription() {
   const approvalLink = response.data.links?.find((link) => link.rel === 'approve')?.href
 
   return {
-    subscriptionId: response.data.id,
+    orderId: response.data.id,
     status: response.data.status,
     approvalLink,
     raw: response.data,
   }
+}
+
+export async function capturePayPalOrder(orderId) {
+  if (!orderId) {
+    throw new Error('Missing PayPal order ID.')
+  }
+
+  const accessToken = await getPayPalAccessToken()
+
+  const response = await axios.post(
+    `${getPayPalBaseUrl()}/v2/checkout/orders/${orderId}/capture`,
+    {},
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    }
+  )
+
+  return response.data
 }

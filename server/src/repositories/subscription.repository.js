@@ -28,7 +28,6 @@ async function readSubscriptions() {
   try {
     const raw = await fs.readFile(SUBSCRIPTION_FILE, 'utf8')
     const parsed = JSON.parse(raw || '[]')
-
     return Array.isArray(parsed) ? parsed : []
   } catch {
     await fs.writeFile(SUBSCRIPTION_FILE, JSON.stringify([], null, 2))
@@ -43,9 +42,22 @@ async function writeSubscriptions(subscriptions) {
   )
 }
 
+function addMonths(date, months) {
+  const newDate = new Date(date)
+  newDate.setMonth(newDate.getMonth() + months)
+  return newDate
+}
+
+function isSubscriptionActive(subscription) {
+  if (!subscription) return false
+  if (subscription.status !== 'ACTIVE') return false
+  if (!subscription.expiresAt) return false
+
+  return new Date(subscription.expiresAt).getTime() > Date.now()
+}
+
 export async function getSubscriptionStatus(userId = DEFAULT_USER_ID) {
   const subscriptions = await readSubscriptions()
-
   const subscription = subscriptions.find((item) => item.userId === userId)
 
   if (!subscription) {
@@ -54,39 +66,60 @@ export async function getSubscriptionStatus(userId = DEFAULT_USER_ID) {
       companyId: DEFAULT_COMPANY_ID,
       status: 'INACTIVE',
       active: false,
-      subscriptionId: null,
-      planId: process.env.PAYPAL_PLAN_ID || null,
+      paymentType: 'ONE_TIME_500',
+      amountPaid: 0,
+      orderId: null,
       payerEmail: null,
-      nextBillingTime: null,
+      startsAt: null,
+      expiresAt: null,
+      daysRemaining: 0,
       createdAt: null,
       updatedAt: null,
     }
   }
 
+  const active = isSubscriptionActive(subscription)
+  const expiresAtTime = subscription.expiresAt
+    ? new Date(subscription.expiresAt).getTime()
+    : Date.now()
+
+  const daysRemaining = active
+    ? Math.ceil((expiresAtTime - Date.now()) / (1000 * 60 * 60 * 24))
+    : 0
+
   return {
     ...subscription,
-    active: subscription.status === 'ACTIVE',
+    active,
+    daysRemaining,
+    status: active ? 'ACTIVE' : 'EXPIRED',
   }
 }
 
-export async function saveSubscription(subscription = {}) {
+export async function savePaidAccess({
+  userId = DEFAULT_USER_ID,
+  companyId = DEFAULT_COMPANY_ID,
+  orderId,
+  payerEmail,
+  raw,
+}) {
   const subscriptions = await readSubscriptions()
-
-  const userId = subscription.userId || DEFAULT_USER_ID
-  const companyId = subscription.companyId || DEFAULT_COMPANY_ID
-
   const existingIndex = subscriptions.findIndex((item) => item.userId === userId)
+
+  const startsAt = new Date()
+  const expiresAt = addMonths(startsAt, 4)
 
   const savedSubscription = {
     userId,
     companyId,
-    planId: subscription.planId || process.env.PAYPAL_PLAN_ID || null,
-    subscriptionId: subscription.subscriptionId || null,
-    status: subscription.status || 'INACTIVE',
-    payerEmail: subscription.payerEmail || null,
-    nextBillingTime: subscription.nextBillingTime || null,
-    lastWebhookAt: subscription.lastWebhookAt || null,
-    raw: subscription.raw || null,
+    paymentType: 'ONE_TIME_500',
+    amountPaid: 500,
+    currency: 'USD',
+    orderId,
+    status: 'ACTIVE',
+    payerEmail: payerEmail || null,
+    startsAt: startsAt.toISOString(),
+    expiresAt: expiresAt.toISOString(),
+    raw: raw || null,
     createdAt:
       existingIndex >= 0
         ? subscriptions[existingIndex].createdAt
@@ -102,26 +135,46 @@ export async function saveSubscription(subscription = {}) {
 
   await writeSubscriptions(subscriptions)
 
-  return {
-    ...savedSubscription,
-    active: savedSubscription.status === 'ACTIVE',
-  }
+  return getSubscriptionStatus(userId)
 }
 
 export async function cancelLocalSubscription(userId = DEFAULT_USER_ID) {
-  const current = await getSubscriptionStatus(userId)
+  const subscriptions = await readSubscriptions()
+  const existingIndex = subscriptions.findIndex((item) => item.userId === userId)
 
-  return saveSubscription({
-    ...current,
-    userId,
+  if (existingIndex < 0) {
+    return getSubscriptionStatus(userId)
+  }
+
+  subscriptions[existingIndex] = {
+    ...subscriptions[existingIndex],
     status: 'CANCELLED',
+    active: false,
+    updatedAt: new Date().toISOString(),
+  }
+
+  await writeSubscriptions(subscriptions)
+
+  return getSubscriptionStatus(userId)
+}
+
+export async function activateDemoSubscription(userId = DEFAULT_USER_ID) {
+  return savePaidAccess({
+    userId,
+    companyId: DEFAULT_COMPANY_ID,
+    orderId: 'DEMO-ORDER-500',
+    payerEmail: 'demo@fieldorapro.com',
+    raw: {
+      demo: true,
+    },
   })
 }
 
 export const subscriptionRepository = {
   getSubscriptionStatus,
-  saveSubscription,
+  savePaidAccess,
   cancelLocalSubscription,
+  activateDemoSubscription,
 }
 
 export default subscriptionRepository
