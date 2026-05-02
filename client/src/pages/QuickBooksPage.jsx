@@ -108,7 +108,7 @@ export default function QuickBooksPage() {
       <PageHeader
         eyebrow="Accounting Integration"
         title="QuickBooks Online"
-        description="Let each client connect their own QuickBooks company. VoltFlow never exposes client secrets or raw tokens to the browser."
+        description="Securely connect your company’s QuickBooks account to sync customers, invoices, payments, and accounting records. Fieldora Pro protects your financial data by keeping all tokens and credentials encrypted on the backend — never in the browser.."
         primaryLabel="Connect QuickBooks"
         secondaryLabel="Refresh Status"
         onPrimaryClick={handleConnect}
