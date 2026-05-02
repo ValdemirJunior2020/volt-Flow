@@ -1,4 +1,4 @@
-// client/src/App.jsx
+// C:\Users\Valdemir Goncalves\Downloads\Projetos Maio\Fildemora Pro\client\src\App.jsx
 import React, { useEffect, useMemo, useState } from 'react'
 import Sidebar from './components/Sidebar'
 import Topbar from './components/Topbar'
@@ -19,13 +19,31 @@ import SubscriptionPage from './pages/SubscriptionPage'
 
 export default function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname)
+  const [isPro, setIsPro] = useState(false)
 
   useEffect(() => {
-    const onPopState = () => setCurrentPath(window.location.pathname)
+    function handlePopState() {
+      setCurrentPath(window.location.pathname)
+    }
 
-    window.addEventListener('popstate', onPopState)
+    function syncProStatus() {
+      const localPaid = localStorage.getItem('voltflow_subscription_active') === 'true'
+      const localDemo = localStorage.getItem('fieldora_pro_active') === 'true'
 
-    return () => window.removeEventListener('popstate', onPopState)
+      setIsPro(localPaid || localDemo)
+    }
+
+    syncProStatus()
+
+    window.addEventListener('popstate', handlePopState)
+    window.addEventListener('storage', syncProStatus)
+    window.addEventListener('focus', syncProStatus)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+      window.removeEventListener('storage', syncProStatus)
+      window.removeEventListener('focus', syncProStatus)
+    }
   }, [])
 
   function navigate(path) {
@@ -53,19 +71,27 @@ export default function App() {
   }, [currentPath])
 
   return (
-    <div className="flex min-h-screen bg-[#f0f2f5] font-sans max-lg:flex-col">
-      <Sidebar currentPath={currentPath} onNavigate={navigate} />
+    <div className="min-h-screen bg-[#f0f2f5] font-sans">
+      <Sidebar currentPath={currentPath} onNavigate={navigate} isPro={isPro} />
 
-      <div className="ml-44 flex-1 flex flex-col max-lg:ml-0">
-        <Topbar />
+      <div className="ml-56 flex min-h-screen flex-col max-lg:ml-0">
+        <Topbar isPro={isPro} />
 
         <div className="px-4 sm:px-5 pt-4">
           <div className="rounded-2xl border border-[#f5d000]/40 bg-[#fff9d6] px-5 py-4 shadow-sm">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-wide text-[#9a6a00]">
-                  Fildemora Pro
-                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-xs font-black uppercase tracking-wide text-[#9a6a00]">
+                    Fildemora Pro
+                  </p>
+
+                  {isPro && (
+                    <span className="rounded-full bg-green-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-green-700 border border-green-200">
+                      Pro Active
+                    </span>
+                  )}
+                </div>
 
                 <h2 className="mt-1 text-xl font-black text-[#0f1c2e]">
                   The complete command center for field service businesses.
@@ -81,14 +107,23 @@ export default function App() {
               <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm">
                 <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-white p-1">
                   <img
-                    src="/assets/logo.png?v=3"
+                    src="/assets/logo.gif?v=2"
                     alt="Fildemora Pro"
                     className="h-full w-full object-contain"
                   />
                 </div>
 
                 <div>
-                  <p className="text-sm font-black text-[#0f1c2e]">Fildemora Pro</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-black text-[#0f1c2e]">Fildemora Pro</p>
+
+                    {isPro && (
+                      <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-green-700 border border-green-200">
+                        Pro
+                      </span>
+                    )}
+                  </div>
+
                   <p className="text-xs font-semibold text-slate-500">Business OS</p>
                 </div>
               </div>
