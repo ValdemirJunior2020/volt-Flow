@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import Sidebar from './components/Sidebar'
 import Topbar from './components/Topbar'
+import UserGuidePage from './pages/UserGuidePage'
 import Dashboard from './pages/Dashboard'
 import JobsPage from './pages/JobsPage'
 import SchedulingPage from './pages/SchedulingPage'
@@ -88,6 +89,7 @@ export default function App() {
     if (currentPath === '/' || currentPath === '/dashboard') return <Dashboard />
     if (currentPath === '/jobs') return <JobsPage />
     if (currentPath === '/scheduling') return <SchedulingPage />
+    if (currentPath === '/user-guide' || currentPath === '/help') return <UserGuidePage />
     if (currentPath === '/invoices') return <InvoicesPage />
     if (currentPath === '/customers') return <CustomersPage />
     if (currentPath === '/employees') return <EmployeesPage />
