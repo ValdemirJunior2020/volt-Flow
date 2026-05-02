@@ -3,8 +3,6 @@ import React, { useEffect, useMemo, useState } from 'react'
 import Sidebar from './components/Sidebar'
 import Topbar from './components/Topbar'
 import Dashboard from './pages/Dashboard'
-// client/src/App.jsx
-import SubscriptionPage from './pages/SubscriptionPage'
 import JobsPage from './pages/JobsPage'
 import SchedulingPage from './pages/SchedulingPage'
 import InvoicesPage from './pages/InvoicesPage'
@@ -17,13 +15,16 @@ import SettingsPage from './pages/SettingsPage'
 import QuickBooksPage from './pages/QuickBooksPage'
 import SyncLogsPage from './pages/SyncLogsPage'
 import CompanyBrandingPage from './pages/CompanyBrandingPage'
+import SubscriptionPage from './pages/SubscriptionPage'
 
 export default function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname)
 
   useEffect(() => {
     const onPopState = () => setCurrentPath(window.location.pathname)
+
     window.addEventListener('popstate', onPopState)
+
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
 
@@ -35,7 +36,6 @@ export default function App() {
   const content = useMemo(() => {
     if (currentPath === '/' || currentPath === '/dashboard') return <Dashboard />
     if (currentPath === '/jobs') return <JobsPage />
-    if (currentPath === '/subscription' || currentPath === '/pricing') return <SubscriptionPage />
     if (currentPath === '/scheduling') return <SchedulingPage />
     if (currentPath === '/invoices') return <InvoicesPage />
     if (currentPath === '/customers') return <CustomersPage />
@@ -46,6 +46,7 @@ export default function App() {
     if (currentPath === '/integrations/quickbooks') return <QuickBooksPage />
     if (currentPath === '/sync-logs') return <SyncLogsPage />
     if (currentPath === '/company-branding') return <CompanyBrandingPage />
+    if (currentPath === '/subscription' || currentPath === '/pricing') return <SubscriptionPage />
     if (currentPath === '/settings' || currentPath === '/settings/integrations') return <SettingsPage />
 
     return <Dashboard />
@@ -58,7 +59,44 @@ export default function App() {
       <div className="ml-44 flex-1 flex flex-col max-lg:ml-0">
         <Topbar />
 
-        <main className="pt-14 flex-1 overflow-auto max-lg:pt-0">{content}</main>
+        <div className="px-4 sm:px-5 pt-4">
+          <div className="rounded-2xl border border-[#f5d000]/40 bg-[#fff9d6] px-5 py-4 shadow-sm">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-[#9a6a00]">
+                  Fildemora Pro
+                </p>
+
+                <h2 className="mt-1 text-xl font-black text-[#0f1c2e]">
+                  The complete command center for field service businesses.
+                </h2>
+
+                <p className="mt-1 max-w-4xl text-sm font-semibold text-slate-700">
+                  Manage jobs, scheduling, customers, invoices, employees, payroll previews,
+                  reports, company branding, and optional QuickBooks accounting sync from one
+                  professional platform.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm">
+                <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-white p-1">
+                  <img
+                    src="/assets/logo.png?v=3"
+                    alt="Fildemora Pro"
+                    className="h-full w-full object-contain"
+                  />
+                </div>
+
+                <div>
+                  <p className="text-sm font-black text-[#0f1c2e]">Fildemora Pro</p>
+                  <p className="text-xs font-semibold text-slate-500">Business OS</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <main className="pt-4 flex-1 overflow-auto">{content}</main>
       </div>
     </div>
   )

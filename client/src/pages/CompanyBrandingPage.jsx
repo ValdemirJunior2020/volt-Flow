@@ -5,13 +5,13 @@ import KpiCard from '../components/business/KpiCard'
 import { Crown, ImagePlus, Lock, Save, Upload, Building2 } from 'lucide-react'
 
 const DEFAULT_COMPANY_PROFILE = {
-  companyName: 'VOLT PRO SERVICE CORP.',
-  tagline: 'Electrical Residential & Commercial',
+  companyName: 'Fildemora Pro',
+  tagline: 'The complete command center for field service businesses.',
   phone: '(561) 555-0100',
-  email: 'billing@voltproservice.com',
+  email: 'billing@fildemorapro.com',
   address: 'Lake Worth, FL',
-  license: 'Licensed & Insured',
-  logoUrl: '/assets/volt-logo.png',
+  license: 'Professional Field Service Management Platform',
+  logoUrl: '/assets/logo.png',
 }
 
 export default function CompanyBrandingPage() {
@@ -26,7 +26,13 @@ export default function CompanyBrandingPage() {
     setIsSubscribed(savedSubscription === 'true')
 
     if (savedProfile) {
-      setProfile(JSON.parse(savedProfile))
+      const parsedProfile = JSON.parse(savedProfile)
+
+      setProfile({
+        ...DEFAULT_COMPANY_PROFILE,
+        ...parsedProfile,
+        logoUrl: parsedProfile.logoUrl || '/assets/logo.png',
+      })
     } else {
       localStorage.setItem('voltflow_company_profile', JSON.stringify(DEFAULT_COMPANY_PROFILE))
     }
@@ -47,7 +53,7 @@ export default function CompanyBrandingPage() {
     if (!file) return
 
     if (!isSubscribed) {
-      setMessage('Logo upload is locked. Activate the $150 subscription first.')
+      setMessage('Logo upload is locked. Activate paid access first.')
       return
     }
 
@@ -67,24 +73,42 @@ export default function CompanyBrandingPage() {
 
   function handleSave() {
     if (!isSubscribed) {
-      setMessage('Company branding is locked. Activate the $150 subscription first.')
+      setMessage('Company branding is locked. Activate paid access first.')
       return
     }
 
-    localStorage.setItem('voltflow_company_profile', JSON.stringify(profile))
+    localStorage.setItem(
+      'voltflow_company_profile',
+      JSON.stringify({
+        ...profile,
+        logoUrl: profile.logoUrl || '/assets/logo.png',
+      })
+    )
+
     setMessage('Company branding saved. Your invoices will now use this branding.')
+  }
+
+  function handleUseDefaultLogo() {
+    const updatedProfile = {
+      ...profile,
+      logoUrl: '/assets/logo.png',
+    }
+
+    setProfile(updatedProfile)
+    localStorage.setItem('voltflow_company_profile', JSON.stringify(updatedProfile))
+    setMessage('Default Fildemora Pro logo restored.')
   }
 
   function handleActivateDemoSubscription() {
     localStorage.setItem('voltflow_subscription_active', 'true')
     setIsSubscribed(true)
-    setMessage('Subscription activated for testing. Branding tools are now unlocked.')
+    setMessage('Demo paid access activated for testing. Branding tools are now unlocked.')
   }
 
   function handleCancelDemoSubscription() {
     localStorage.setItem('voltflow_subscription_active', 'false')
     setIsSubscribed(false)
-    setMessage('Subscription disabled. Branding tools are locked again.')
+    setMessage('Demo paid access disabled. Branding tools are locked again.')
   }
 
   return (
@@ -92,22 +116,23 @@ export default function CompanyBrandingPage() {
       <PageHeader
         eyebrow="Premium Branding"
         title="Company Branding"
-        description="Personalize invoices with your company logo, business name, contact info, license, and branding. Available after the $150 subscription is active."
+        description="Personalize invoices with your company logo, business name, contact info, license, and branding. If no logo is uploaded, the default Fildemora Pro logo will be used."
         primaryLabel="Premium Feature"
-        secondaryLabel="Invoice Preview"
+        secondaryLabel="Use Default Logo"
+        onSecondaryClick={handleUseDefaultLogo}
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <KpiCard
           icon={Crown}
-          label="Subscription"
+          label="Access"
           value={isSubscribed ? 'Active' : 'Locked'}
-          sub="$150 premium plan"
+          sub="Paid branding feature"
         />
         <KpiCard
           icon={ImagePlus}
           label="Logo"
-          value={profile.logoUrl ? 'Ready' : 'Missing'}
+          value={profile.logoUrl ? 'Ready' : 'Default'}
           sub="Shown on invoices"
         />
         <KpiCard
@@ -118,7 +143,7 @@ export default function CompanyBrandingPage() {
         />
         <KpiCard
           icon={Lock}
-          label="Access"
+          label="Customization"
           value={isSubscribed ? 'Unlocked' : 'Paywall'}
           sub="Branding customization"
         />
@@ -145,7 +170,8 @@ export default function CompanyBrandingPage() {
               </h2>
               <p className="mt-1 text-sm text-slate-700">
                 Customers can use the platform normally, but custom invoice branding is only
-                available after the $150 subscription is active.
+                available after paid access is active. If they do not upload a logo, invoices
+                will use the Fildemora Pro logo.
               </p>
             </div>
 
@@ -154,7 +180,7 @@ export default function CompanyBrandingPage() {
               onClick={handleActivateDemoSubscription}
               className="rounded-xl bg-[#0f1c2e] px-5 py-3 text-sm font-black text-white hover:bg-[#1a2a3f]"
             >
-              Activate $150 Subscription Demo
+              Activate Demo Paid Access
             </button>
           </div>
         </section>
@@ -175,7 +201,7 @@ export default function CompanyBrandingPage() {
               onClick={handleCancelDemoSubscription}
               className="rounded-xl border border-green-300 bg-white px-5 py-3 text-sm font-black text-green-700 hover:bg-green-100"
             >
-              Disable Demo Subscription
+              Disable Demo Paid Access
             </button>
           </div>
         </section>
@@ -194,15 +220,11 @@ export default function CompanyBrandingPage() {
 
               <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-                  {profile.logoUrl ? (
-                    <img
-                      src={profile.logoUrl}
-                      alt="Company logo"
-                      className="h-full w-full object-contain"
-                    />
-                  ) : (
-                    <ImagePlus className="text-slate-400" size={28} />
-                  )}
+                  <img
+                    src={profile.logoUrl || '/assets/logo.png'}
+                    alt="Company logo"
+                    className="h-full w-full object-contain"
+                  />
                 </div>
 
                 <label
@@ -222,6 +244,14 @@ export default function CompanyBrandingPage() {
                     className="hidden"
                   />
                 </label>
+
+                <button
+                  type="button"
+                  onClick={handleUseDefaultLogo}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 hover:bg-slate-50"
+                >
+                  Use Fildemora Logo
+                </button>
               </div>
 
               <p className="mt-2 text-xs text-slate-500">
@@ -303,7 +333,7 @@ export default function CompanyBrandingPage() {
               <div className="flex items-start gap-4">
                 <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-[#0f1c2e] p-2">
                   <img
-                    src={profile.logoUrl || '/assets/volt-logo.png'}
+                    src={profile.logoUrl || '/assets/logo.png'}
                     alt="Company logo preview"
                     className="h-full w-full object-contain"
                   />
@@ -327,12 +357,12 @@ export default function CompanyBrandingPage() {
 
             <div className="mt-6 rounded-xl bg-slate-50 p-4">
               <div className="flex justify-between text-sm">
-                <span className="font-semibold text-slate-700">Electrical Service Labor</span>
+                <span className="font-semibold text-slate-700">Field Service Labor</span>
                 <span className="font-black text-slate-900">$570.00</span>
               </div>
 
               <div className="mt-2 flex justify-between text-sm">
-                <span className="font-semibold text-slate-700">Panel Materials</span>
+                <span className="font-semibold text-slate-700">Materials</span>
                 <span className="font-black text-slate-900">$1,250.00</span>
               </div>
 

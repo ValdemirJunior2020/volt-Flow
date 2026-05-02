@@ -1,4 +1,4 @@
-// server/server.js
+// C:\Users\Valdemir Goncalves\Downloads\Projetos Maio\Fildemora Pro\server\server.js
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
@@ -10,6 +10,7 @@ import syncLogRoutes from './src/routes/syncLog.routes.js'
 import payrollRoutes from './src/routes/payroll.routes.js'
 import paypalRoutes from './src/routes/paypal.routes.js'
 import subscriptionRoutes from './src/routes/subscription.routes.js'
+import employeeRoutes from './src/routes/employee.routes.js'
 
 dotenv.config()
 
@@ -49,7 +50,7 @@ app.use(
 
 app.get('/', (req, res) => {
   res.json({
-    app: 'Fieldora Pro API',
+    app: 'Fildemora Pro API',
     status: 'running',
   })
 })
@@ -59,6 +60,7 @@ app.use('/api/v1/quickbooks/payroll', payrollRoutes)
 app.use('/api/v1/sync-logs', syncLogRoutes)
 app.use('/api/v1/paypal', paypalRoutes)
 app.use('/api/v1/subscription', subscriptionRoutes)
+app.use('/api/v1/employees', employeeRoutes)
 
 app.use((req, res) => {
   res.status(404).json({
@@ -75,5 +77,5 @@ app.use((error, req, res, next) => {
 })
 
 app.listen(PORT, () => {
-  console.log(`Fieldora Pro server running on port ${PORT}`)
+  console.log(`Fildemora Pro server running on port ${PORT}`)
 })

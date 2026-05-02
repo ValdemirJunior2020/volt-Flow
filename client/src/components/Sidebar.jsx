@@ -1,22 +1,20 @@
-// client/src/components/Sidebar.jsx
+// C:\Users\Valdemir Goncalves\Downloads\Projetos Maio\Fildemora Pro\client\src\components\Sidebar.jsx
 import React from 'react'
-// client/src/components/Sidebar.jsx
-import { CreditCard } from 'lucide-react'
 import {
-  LayoutDashboard,
+  BadgeCheck,
+  BarChart2,
   Briefcase,
   Calendar,
-  FileText,
-  Users,
-  UserCog,
+  CreditCard,
   DollarSign,
+  FileText,
+  LayoutDashboard,
   Package,
-  BarChart2,
-  Settings,
-  Zap,
   PlugZap,
   ScrollText,
-  BadgeCheck,
+  Settings,
+  UserCog,
+  Users,
 } from 'lucide-react'
 
 const navItems = [
@@ -38,22 +36,30 @@ const navItems = [
 
 export default function Sidebar({ currentPath, onNavigate }) {
   return (
-    <aside className="w-44 min-h-screen bg-[#0f1c2e] flex flex-col fixed left-0 top-0 z-30 max-lg:w-full max-lg:min-h-0 max-lg:h-auto max-lg:relative">
-      <div className="flex items-center gap-2 px-4 py-5 max-lg:py-3">
-        <div className="bg-[#f5d000] rounded-md p-1.5">
-          <Zap size={16} className="text-[#0f1c2e]" fill="#0f1c2e" />
-        </div>
-
-        <span className="text-white font-bold text-base tracking-tight">VoltFlow</span>
+    <aside className="w-56 min-h-screen bg-[#0f1c2e] flex flex-col fixed left-0 top-0 z-30 max-lg:w-full max-lg:min-h-0 max-lg:h-auto max-lg:relative">
+      <div className="flex items-center justify-center px-3 py-6 max-lg:py-4">
+        <button
+          type="button"
+          onClick={() => onNavigate('/')}
+          className="flex h-44 w-44 items-center justify-center overflow-hidden rounded-3xl bg-white p-2 shadow-lg hover:scale-105 transition-transform"
+          title="Go to Dashboard"
+        >
+          <img
+            src="/assets/logo.gif?v=1"
+            alt="Fildemora Pro"
+            className="h-full w-full object-contain"
+          />
+        </button>
       </div>
 
-      <nav className="flex flex-col gap-0.5 px-2 mt-2 flex-1 max-lg:flex-row max-lg:overflow-x-auto max-lg:mt-0 max-lg:pb-2">
+      <nav className="flex flex-col gap-0.5 px-2 mt-1 flex-1 max-lg:flex-row max-lg:overflow-x-auto max-lg:mt-0 max-lg:pb-2">
         {navItems.map(({ icon: Icon, label, path }) => {
           const active = currentPath === path || (path !== '/' && currentPath.startsWith(path))
 
           return (
             <button
               key={label}
+              type="button"
               onClick={() => onNavigate(path)}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all w-full text-left whitespace-nowrap max-lg:w-auto ${
                 active
