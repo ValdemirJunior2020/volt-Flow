@@ -1,133 +1,122 @@
 // server/src/repositories/syncLog.repository.js
-import fs from 'fs/promises'
-import path from 'path'
-import { fileURLToPath } from 'url'
-import crypto from 'crypto'
+import { supabase, DEFAULT_COMPANY_ID } from '../config/supabase.js'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-
-const DATA_DIR = path.join(__dirname, '../data')
-const SYNC_LOG_FILE = path.join(DATA_DIR, 'syncLogs.json')
-
-async function ensureDataFile() {
-  await fs.mkdir(DATA_DIR, { recursive: true })
-
-  try {
-    await fs.access(SYNC_LOG_FILE)
-  } catch {
-    await fs.writeFile(SYNC_LOG_FILE, JSON.stringify([], null, 2))
+function mapLogFromDb(log) {
+  return {
+    id: log.id,
+    timestamp: log.created_at,
+    action: log.action,
+    status: log.status,
+    source: log.source,
+    message: log.message,
+    localId: log.local_id,
+    qbId: log.qb_id,
+    duration: log.duration,
+    errorDetails: log.error_details,
+    metadata: log.metadata,
   }
-}
-
-async function readLogsFile() {
-  await ensureDataFile()
-
-  try {
-    const raw = await fs.readFile(SYNC_LOG_FILE, 'utf8')
-    const parsed = JSON.parse(raw || '[]')
-
-    if (Array.isArray(parsed)) {
-      return parsed
-    }
-
-    if (parsed && Array.isArray(parsed.logs)) {
-      return parsed.logs
-    }
-
-    return []
-  } catch (error) {
-    console.error('Failed to read syncLogs.json. Resetting to empty array.', error)
-    await fs.writeFile(SYNC_LOG_FILE, JSON.stringify([], null, 2))
-    return []
-  }
-}
-
-async function writeLogsFile(logs) {
-  const safeLogs = Array.isArray(logs) ? logs : []
-  await fs.writeFile(SYNC_LOG_FILE, JSON.stringify(safeLogs, null, 2))
 }
 
 export async function getSyncLogs(filters = {}) {
-  let logs = await readLogsFile()
+  let query = supabase
+    .from('sync_logs')
+    .select('*')
+    .eq('company_id', filters.companyId || DEFAULT_COMPANY_ID)
+    .order('created_at', { ascending: false })
 
   if (filters.status) {
-    logs = logs.filter(
-      (log) =>
-        String(log.status).toLowerCase() === String(filters.status).toLowerCase()
-    )
+    query = query.ilike('status', filters.status)
   }
 
   if (filters.action) {
-    logs = logs.filter((log) =>
-      String(log.action).toLowerCase().includes(String(filters.action).toLowerCase())
-    )
+    query = query.ilike('action', `%${filters.action}%`)
   }
+
+  const { data, error } = await query
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  let logs = (data || []).map(mapLogFromDb)
 
   if (filters.search) {
     const search = String(filters.search).toLowerCase()
 
     logs = logs.filter((log) =>
-      [
-        log.action,
-        log.status,
-        log.message,
-        log.source,
-        log.qbId,
-        log.localId,
-      ]
+      [log.action, log.status, log.message, log.source, log.qbId, log.localId]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(search))
     )
   }
 
-  return logs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+  return logs
 }
 
 export async function addSyncLog(log = {}) {
-  const logs = await readLogsFile()
-
-  const newLog = {
-    id: crypto.randomUUID(),
-    timestamp: new Date().toISOString(),
+  const payload = {
+    company_id: log.companyId || DEFAULT_COMPANY_ID,
     action: log.action || 'UNKNOWN_ACTION',
     status: log.status || 'INFO',
-    source: log.source || 'VoltFlow',
+    source: log.source || 'Fieldora Pro',
     message: log.message || '',
-    localId: log.localId || null,
-    qbId: log.qbId || null,
-    duration: log.duration || 0,
-    errorDetails: log.errorDetails || null,
+    local_id: log.localId || null,
+    qb_id: log.qbId || null,
+    duration: Number(log.duration || 0),
+    error_details: log.errorDetails || null,
     metadata: log.metadata || null,
   }
 
-  logs.unshift(newLog)
+  const { data, error } = await supabase
+    .from('sync_logs')
+    .insert(payload)
+    .select('*')
+    .single()
 
-  await writeLogsFile(logs)
+  if (error) {
+    throw new Error(error.message)
+  }
 
-  return newLog
+  return mapLogFromDb(data)
 }
 
 export async function updateSyncLog(id, updates = {}) {
-  const logs = await readLogsFile()
+  const payload = {
+    status: updates.status,
+    message: updates.message,
+    duration: updates.duration,
+    error_details: updates.errorDetails,
+    metadata: updates.metadata,
+  }
 
-  const updatedLogs = logs.map((log) =>
-    log.id === id
-      ? {
-          ...log,
-          ...updates,
-          updatedAt: new Date().toISOString(),
-        }
-      : log
-  )
+  Object.keys(payload).forEach((key) => {
+    if (payload[key] === undefined) delete payload[key]
+  })
 
-  await writeLogsFile(updatedLogs)
+  const { data, error } = await supabase
+    .from('sync_logs')
+    .update(payload)
+    .eq('id', id)
+    .select('*')
+    .single()
 
-  return updatedLogs.find((log) => log.id === id) || null
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return mapLogFromDb(data)
 }
 
 export async function clearSyncLogs() {
-  await writeLogsFile([])
+  const { error } = await supabase
+    .from('sync_logs')
+    .delete()
+    .eq('company_id', DEFAULT_COMPANY_ID)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
   return []
 }
 

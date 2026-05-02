@@ -1,13 +1,5 @@
 // server/src/repositories/quickbooksConnection.repository.js
-import fs from 'fs/promises'
-import path from 'path'
-import { fileURLToPath } from 'url'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-
-const DATA_DIR = path.join(__dirname, '../data')
-const CONNECTION_FILE = path.join(DATA_DIR, 'quickbooksConnection.json')
+import { supabase, DEFAULT_COMPANY_ID } from '../config/supabase.js'
 
 const DEFAULT_CONNECTION = {
   connected: false,
@@ -20,53 +12,87 @@ const DEFAULT_CONNECTION = {
   environment: 'sandbox',
 }
 
-async function ensureConnectionFile() {
-  await fs.mkdir(DATA_DIR, { recursive: true })
+function mapConnectionFromDb(row) {
+  if (!row) return DEFAULT_CONNECTION
 
-  try {
-    await fs.access(CONNECTION_FILE)
-  } catch {
-    await fs.writeFile(CONNECTION_FILE, JSON.stringify(DEFAULT_CONNECTION, null, 2))
+  return {
+    connected: row.connected,
+    companyName: row.company_name,
+    realmId: row.realm_id,
+    accessToken: row.access_token,
+    refreshToken: row.refresh_token,
+    expiresAt: row.expires_at,
+    lastSyncAt: row.last_sync_at,
+    environment: row.environment,
   }
 }
 
-export async function getQuickBooksConnection() {
-  await ensureConnectionFile()
+export async function getQuickBooksConnection(companyId = DEFAULT_COMPANY_ID) {
+  const { data, error } = await supabase
+    .from('quickbooks_connections')
+    .select('*')
+    .eq('company_id', companyId)
+    .maybeSingle()
 
-  try {
-    const raw = await fs.readFile(CONNECTION_FILE, 'utf8')
-    const parsed = JSON.parse(raw || '{}')
-
-    return {
-      ...DEFAULT_CONNECTION,
-      ...parsed,
-    }
-  } catch {
-    await fs.writeFile(CONNECTION_FILE, JSON.stringify(DEFAULT_CONNECTION, null, 2))
-    return DEFAULT_CONNECTION
-  }
-}
-
-export async function saveQuickBooksConnection(connection) {
-  await ensureConnectionFile()
-
-  const current = await getQuickBooksConnection()
-
-  const updated = {
-    ...current,
-    ...connection,
-    updatedAt: new Date().toISOString(),
+  if (error) {
+    throw new Error(error.message)
   }
 
-  await fs.writeFile(CONNECTION_FILE, JSON.stringify(updated, null, 2))
-
-  return updated
+  return mapConnectionFromDb(data)
 }
 
-export async function clearQuickBooksConnection() {
-  await ensureConnectionFile()
+export async function saveQuickBooksConnection(connection, companyId = DEFAULT_COMPANY_ID) {
+  const payload = {
+    company_id: companyId,
+    connected: connection.connected ?? true,
+    company_name: connection.companyName ?? connection.company_name ?? null,
+    realm_id: connection.realmId ?? connection.realm_id ?? null,
+    access_token: connection.accessToken ?? connection.access_token ?? null,
+    refresh_token: connection.refreshToken ?? connection.refresh_token ?? null,
+    expires_at: connection.expiresAt ?? connection.expires_at ?? null,
+    last_sync_at: connection.lastSyncAt
+      ? new Date(connection.lastSyncAt).toISOString()
+      : new Date().toISOString(),
+    environment: connection.environment || process.env.QUICKBOOKS_ENVIRONMENT || 'sandbox',
+    updated_at: new Date().toISOString(),
+  }
 
-  await fs.writeFile(CONNECTION_FILE, JSON.stringify(DEFAULT_CONNECTION, null, 2))
+  const { data, error } = await supabase
+    .from('quickbooks_connections')
+    .upsert(payload, { onConflict: 'company_id' })
+    .select('*')
+    .single()
 
-  return DEFAULT_CONNECTION
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return mapConnectionFromDb(data)
+}
+
+export async function clearQuickBooksConnection(companyId = DEFAULT_COMPANY_ID) {
+  const payload = {
+    company_id: companyId,
+    connected: false,
+    company_name: null,
+    realm_id: null,
+    access_token: null,
+    refresh_token: null,
+    expires_at: null,
+    last_sync_at: null,
+    environment: process.env.QUICKBOOKS_ENVIRONMENT || 'sandbox',
+    updated_at: new Date().toISOString(),
+  }
+
+  const { data, error } = await supabase
+    .from('quickbooks_connections')
+    .upsert(payload, { onConflict: 'company_id' })
+    .select('*')
+    .single()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return mapConnectionFromDb(data)
 }

@@ -1,6 +1,7 @@
 // server/src/controllers/payroll.controller.js
 import crypto from 'crypto'
 import { addSyncLog } from '../repositories/syncLog.repository.js'
+import { savePayrollBatch } from '../repositories/payroll.repository.js'
 
 export async function syncPayrollSummaryToQuickBooks(req, res, next) {
   const startedAt = Date.now()
@@ -29,13 +30,17 @@ export async function syncPayrollSummaryToQuickBooks(req, res, next) {
     const payrollSummary = {
       payrollRunId: payrollRun.payrollRunId,
       period: payrollRun.period || 'Current Pay Period',
+      status: 'Approved',
       grossPay,
       estimatedTaxes,
       netPay,
       employees: payrollRun.employees,
+      approvedAt: new Date().toISOString(),
       accountingAction:
         'Payroll summary prepared for manager review. This does not issue paychecks or legally file payroll taxes.',
     }
+
+    const savedPayrollBatch = await savePayrollBatch(payrollSummary)
 
     const referenceId = `PAYROLL-SUMMARY-${crypto
       .randomBytes(5)
@@ -43,11 +48,11 @@ export async function syncPayrollSummaryToQuickBooks(req, res, next) {
       .toUpperCase()}`
 
     await addSyncLog({
-      action: 'PAYROLL_SUMMARY_CREATED',
+      action: 'PAYROLL_BATCH_APPROVED',
       status: 'SUCCESS',
-      source: 'VoltFlow Payroll',
+      source: 'Fieldora Pro Payroll',
       message:
-        'Payroll summary created for manager review. Actual paycheck processing and tax filing should be handled by QuickBooks Payroll, Gusto, ADP, or another approved payroll provider.',
+        'Payroll batch approved and saved to Supabase. Actual paycheck processing and tax filing should be handled by a payroll provider.',
       localId: payrollRun.payrollRunId,
       qbId: referenceId,
       duration: Date.now() - startedAt,
@@ -57,9 +62,9 @@ export async function syncPayrollSummaryToQuickBooks(req, res, next) {
     return res.status(200).json({
       success: true,
       message:
-        'Payroll summary saved successfully. Managers can review payroll totals, estimated taxes, deductions, and export reports.',
+        'Payroll batch approved and saved successfully. Managers can review payroll totals, estimated taxes, deductions, and export reports.',
       referenceId,
-      payrollRun: payrollSummary,
+      payrollRun: savedPayrollBatch,
     })
   } catch (error) {
     next(error)
