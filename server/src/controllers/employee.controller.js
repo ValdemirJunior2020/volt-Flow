@@ -37,10 +37,11 @@ function validateEmployeePayload(body) {
 
 export async function listEmployees(req, res, next) {
   try {
-    const employees = await getEmployees()
+    const employees = await getEmployees(req.companyId)
 
     return res.json({
       success: true,
+      companyId: req.companyId,
       count: employees.length,
       employees,
     })
@@ -60,22 +61,30 @@ export async function addEmployee(req, res, next) {
       })
     }
 
-    const employee = await createEmployee({
-      name: String(req.body.name).trim(),
-      role: String(req.body.role).trim(),
-      hourlyRate: Number(req.body.hourlyRate),
-      hours: Number(req.body.hours),
-      overtimeHours: Number(req.body.overtimeHours || 0),
-      status: req.body.status || 'Ready',
-    })
+    const employee = await createEmployee(
+      {
+        name: String(req.body.name).trim(),
+        role: String(req.body.role).trim(),
+        hourlyRate: Number(req.body.hourlyRate),
+        hours: Number(req.body.hours),
+        overtimeHours: Number(req.body.overtimeHours || 0),
+        status: req.body.status || 'Ready',
+      },
+      req.companyId,
+      req.authUserId
+    )
 
     await addSyncLog({
+      companyId: req.companyId,
       action: 'EMPLOYEE_CREATED',
       status: 'SUCCESS',
       source: 'Fildemora Pro',
-      message: `${employee.name} was added to Supabase employees.`,
+      message: `${employee.name} was added.`,
       localId: employee.id,
-      metadata: employee,
+      metadata: {
+        employee,
+        authUserId: req.authUserId,
+      },
     })
 
     return res.status(201).json({
@@ -100,22 +109,30 @@ export async function editEmployee(req, res, next) {
       })
     }
 
-    const employee = await updateEmployee(id, {
-      name: String(req.body.name).trim(),
-      role: String(req.body.role).trim(),
-      hourlyRate: Number(req.body.hourlyRate),
-      hours: Number(req.body.hours),
-      overtimeHours: Number(req.body.overtimeHours || 0),
-      status: req.body.status || 'Ready',
-    })
+    const employee = await updateEmployee(
+      id,
+      {
+        name: String(req.body.name).trim(),
+        role: String(req.body.role).trim(),
+        hourlyRate: Number(req.body.hourlyRate),
+        hours: Number(req.body.hours),
+        overtimeHours: Number(req.body.overtimeHours || 0),
+        status: req.body.status || 'Ready',
+      },
+      req.companyId
+    )
 
     await addSyncLog({
+      companyId: req.companyId,
       action: 'EMPLOYEE_UPDATED',
       status: 'SUCCESS',
       source: 'Fildemora Pro',
-      message: `${employee.name} was updated in Supabase.`,
+      message: `${employee.name} was updated.`,
       localId: employee.id,
-      metadata: employee,
+      metadata: {
+        employee,
+        authUserId: req.authUserId,
+      },
     })
 
     return res.json({
@@ -132,14 +149,18 @@ export async function removeEmployee(req, res, next) {
   try {
     const { id } = req.params
 
-    await deleteEmployee(id)
+    await deleteEmployee(id, req.companyId)
 
     await addSyncLog({
+      companyId: req.companyId,
       action: 'EMPLOYEE_DELETED',
       status: 'SUCCESS',
       source: 'Fildemora Pro',
-      message: `Employee ${id} was deleted from Supabase.`,
+      message: `Employee ${id} was deleted.`,
       localId: id,
+      metadata: {
+        authUserId: req.authUserId,
+      },
     })
 
     return res.json({

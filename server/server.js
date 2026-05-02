@@ -11,6 +11,7 @@ import payrollRoutes from './src/routes/payroll.routes.js'
 import paypalRoutes from './src/routes/paypal.routes.js'
 import subscriptionRoutes from './src/routes/subscription.routes.js'
 import employeeRoutes from './src/routes/employee.routes.js'
+import { requireAuth } from './src/middleware/requireAuth.js'
 
 dotenv.config()
 
@@ -44,7 +45,7 @@ app.use(express.json({ limit: '10mb' }))
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 300,
+    max: 500,
   })
 )
 
@@ -55,12 +56,13 @@ app.get('/', (req, res) => {
   })
 })
 
+app.use('/api/v1/employees', requireAuth, employeeRoutes)
+app.use('/api/v1/quickbooks/payroll', requireAuth, payrollRoutes)
+app.use('/api/v1/sync-logs', requireAuth, syncLogRoutes)
+app.use('/api/v1/subscription', requireAuth, subscriptionRoutes)
+
 app.use('/api/v1/quickbooks', quickBooksRoutes)
-app.use('/api/v1/quickbooks/payroll', payrollRoutes)
-app.use('/api/v1/sync-logs', syncLogRoutes)
 app.use('/api/v1/paypal', paypalRoutes)
-app.use('/api/v1/subscription', subscriptionRoutes)
-app.use('/api/v1/employees', employeeRoutes)
 
 app.use((req, res) => {
   res.status(404).json({
@@ -72,6 +74,7 @@ app.use((error, req, res, next) => {
   console.error(error)
 
   res.status(error.status || 500).json({
+    success: false,
     message: error.message || 'Internal server error',
   })
 })

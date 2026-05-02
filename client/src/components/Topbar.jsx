@@ -1,4 +1,4 @@
-// client/src/components/Topbar.jsx
+// C:\Users\Valdemir Goncalves\Downloads\Projetos Maio\Fildemora Pro\client\src\components\Topbar.jsx
 import React, { useEffect, useRef, useState } from 'react'
 import {
   Bell,
@@ -6,6 +6,7 @@ import {
   CalendarPlus,
   ChevronDown,
   FileText,
+  LogOut,
   Mail,
   Plus,
   PlugZap,
@@ -14,14 +15,20 @@ import {
   X,
 } from 'lucide-react'
 
-export default function Topbar() {
+export default function Topbar({ isPro = false, user, onLogout }) {
   const [quickOpen, setQuickOpen] = useState(false)
+  const [userOpen, setUserOpen] = useState(false)
   const menuRef = useRef(null)
+  const userMenuRef = useRef(null)
 
   useEffect(() => {
     function handleClickOutside(event) {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setQuickOpen(false)
+      }
+
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setUserOpen(false)
       }
     }
 
@@ -37,6 +44,11 @@ export default function Topbar() {
     window.dispatchEvent(new PopStateEvent('popstate'))
     setQuickOpen(false)
   }
+
+  const displayName =
+    user?.user_metadata?.full_name ||
+    user?.email?.split('@')[0] ||
+    'User'
 
   const quickActions = [
     {
@@ -106,21 +118,52 @@ export default function Topbar() {
           </span>
         </button>
 
-        <div className="flex items-center gap-2">
-          <div className="text-right leading-tight max-sm:hidden">
-            <p className="text-xs font-black text-slate-900">Sarah J.</p>
-            <p className="text-[10px] font-semibold text-slate-400">Admin</p>
-          </div>
+        <div className="relative" ref={userMenuRef}>
+          <button
+            type="button"
+            onClick={() => setUserOpen((current) => !current)}
+            className="flex items-center gap-2 rounded-xl px-2 py-1 hover:bg-slate-50"
+          >
+            <div className="text-right leading-tight max-sm:hidden">
+              <div className="flex items-center justify-end gap-2">
+                <p className="text-xs font-black text-slate-900">{displayName}</p>
 
-          <div className="h-8 w-8 overflow-hidden rounded-full bg-slate-200">
-            <img
-              src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop"
-              alt="Admin"
-              className="h-full w-full object-cover"
-            />
-          </div>
+                {isPro && (
+                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-green-700 border border-green-200">
+                    Pro
+                  </span>
+                )}
+              </div>
 
-          <ChevronDown size={14} className="text-slate-400" />
+              <p className="text-[10px] font-semibold text-slate-400">
+                {user?.email || 'Signed in'}
+              </p>
+            </div>
+
+            <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[#0f1c2e] text-xs font-black text-white">
+              {displayName.slice(0, 2).toUpperCase()}
+            </div>
+
+            <ChevronDown size={14} className="text-slate-400" />
+          </button>
+
+          {userOpen && (
+            <div className="absolute right-0 mt-3 w-64 overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-xl">
+              <div className="border-b border-slate-100 px-4 py-3">
+                <p className="text-sm font-black text-slate-900">{displayName}</p>
+                <p className="text-xs font-semibold text-slate-500">{user?.email}</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={onLogout}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-black text-red-600 hover:bg-red-50"
+              >
+                <LogOut size={16} />
+                Logout
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="relative" ref={menuRef}>

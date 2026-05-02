@@ -16,10 +16,38 @@ import QuickBooksPage from './pages/QuickBooksPage'
 import SyncLogsPage from './pages/SyncLogsPage'
 import CompanyBrandingPage from './pages/CompanyBrandingPage'
 import SubscriptionPage from './pages/SubscriptionPage'
+import LoginPage from './pages/LoginPage'
+import { supabase } from './lib/supabaseClient'
 
 export default function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname)
+  const [session, setSession] = useState(null)
+  const [authLoading, setAuthLoading] = useState(true)
   const [isPro, setIsPro] = useState(false)
+
+  useEffect(() => {
+    async function loadSession() {
+      const {
+        data: { session: currentSession },
+      } = await supabase.auth.getSession()
+
+      setSession(currentSession)
+      setAuthLoading(false)
+    }
+
+    loadSession()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      setSession(currentSession)
+      setAuthLoading(false)
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [])
 
   useEffect(() => {
     function handlePopState() {
@@ -51,6 +79,11 @@ export default function App() {
     setCurrentPath(path)
   }
 
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    window.location.href = '/'
+  }
+
   const content = useMemo(() => {
     if (currentPath === '/' || currentPath === '/dashboard') return <Dashboard />
     if (currentPath === '/jobs') return <JobsPage />
@@ -70,12 +103,24 @@ export default function App() {
     return <Dashboard />
   }, [currentPath])
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#0f1c2e] flex items-center justify-center text-white font-black">
+        Loading Fildemora Pro...
+      </div>
+    )
+  }
+
+  if (!session) {
+    return <LoginPage />
+  }
+
   return (
     <div className="min-h-screen bg-[#f0f2f5] font-sans">
       <Sidebar currentPath={currentPath} onNavigate={navigate} isPro={isPro} />
 
       <div className="ml-56 flex min-h-screen flex-col max-lg:ml-0">
-        <Topbar isPro={isPro} />
+        <Topbar isPro={isPro} user={session.user} onLogout={handleLogout} />
 
         <div className="px-4 sm:px-5 pt-4">
           <div className="rounded-2xl border border-[#f5d000]/40 bg-[#fff9d6] px-5 py-4 shadow-sm">
@@ -124,7 +169,7 @@ export default function App() {
                     )}
                   </div>
 
-                  <p className="text-xs font-semibold text-slate-500">Business OS</p>
+                  <p className="text-xs font-semibold text-slate-500">Secure Business OS</p>
                 </div>
               </div>
             </div>
