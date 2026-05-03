@@ -2,7 +2,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import Sidebar from './components/Sidebar'
 import Topbar from './components/Topbar'
-import UserGuidePage from './pages/UserGuidePage'
 import Dashboard from './pages/Dashboard'
 import JobsPage from './pages/JobsPage'
 import SchedulingPage from './pages/SchedulingPage'
@@ -17,6 +16,7 @@ import QuickBooksPage from './pages/QuickBooksPage'
 import SyncLogsPage from './pages/SyncLogsPage'
 import CompanyBrandingPage from './pages/CompanyBrandingPage'
 import SubscriptionPage from './pages/SubscriptionPage'
+import UserGuidePage from './pages/UserGuidePage'
 import LoginPage from './pages/LoginPage'
 import { supabase } from './lib/supabaseClient'
 
@@ -78,6 +78,7 @@ export default function App() {
   function navigate(path) {
     window.history.pushState({}, '', path)
     setCurrentPath(path)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   async function handleLogout() {
@@ -89,7 +90,6 @@ export default function App() {
     if (currentPath === '/' || currentPath === '/dashboard') return <Dashboard />
     if (currentPath === '/jobs') return <JobsPage />
     if (currentPath === '/scheduling') return <SchedulingPage />
-    if (currentPath === '/user-guide' || currentPath === '/help') return <UserGuidePage />
     if (currentPath === '/invoices') return <InvoicesPage />
     if (currentPath === '/customers') return <CustomersPage />
     if (currentPath === '/employees') return <EmployeesPage />
@@ -100,6 +100,7 @@ export default function App() {
     if (currentPath === '/sync-logs') return <SyncLogsPage />
     if (currentPath === '/company-branding') return <CompanyBrandingPage />
     if (currentPath === '/subscription' || currentPath === '/pricing') return <SubscriptionPage />
+    if (currentPath === '/user-guide' || currentPath === '/help') return <UserGuidePage />
     if (currentPath === '/settings' || currentPath === '/settings/integrations') return <SettingsPage />
 
     return <Dashboard />
@@ -122,7 +123,12 @@ export default function App() {
       <Sidebar currentPath={currentPath} onNavigate={navigate} isPro={isPro} />
 
       <div className="ml-56 flex min-h-screen flex-col max-lg:ml-0">
-        <Topbar isPro={isPro} user={session.user} onLogout={handleLogout} />
+        <Topbar
+          isPro={isPro}
+          user={session.user}
+          onLogout={handleLogout}
+          onNavigate={navigate}
+        />
 
         <div className="px-4 sm:px-5 pt-4">
           <div className="rounded-2xl border border-[#f5d000]/40 bg-[#fff9d6] px-5 py-4 shadow-sm">

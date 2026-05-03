@@ -2,29 +2,32 @@
 import React, { useEffect, useRef, useState } from 'react'
 import {
   Bell,
-  Briefcase,
-  CalendarPlus,
+  BookOpen,
   ChevronDown,
   FileText,
   LogOut,
   Mail,
-  Plus,
-  PlugZap,
   Search,
   UserPlus,
-  X,
 } from 'lucide-react'
 
-export default function Topbar({ isPro = false, user, onLogout }) {
-  const [quickOpen, setQuickOpen] = useState(false)
+export default function Topbar({ isPro = false, user, onLogout, onNavigate }) {
+  const [messagesOpen, setMessagesOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [userOpen, setUserOpen] = useState(false)
-  const menuRef = useRef(null)
+
+  const messagesRef = useRef(null)
+  const notificationsRef = useRef(null)
   const userMenuRef = useRef(null)
 
   useEffect(() => {
     function handleClickOutside(event) {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setQuickOpen(false)
+      if (messagesRef.current && !messagesRef.current.contains(event.target)) {
+        setMessagesOpen(false)
+      }
+
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target)) {
+        setNotificationsOpen(false)
       }
 
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
@@ -39,10 +42,13 @@ export default function Topbar({ isPro = false, user, onLogout }) {
     }
   }, [])
 
-  function navigate(path) {
-    window.history.pushState({}, '', path)
-    window.dispatchEvent(new PopStateEvent('popstate'))
-    setQuickOpen(false)
+  function goTo(path) {
+    if (typeof onNavigate === 'function') {
+      onNavigate(path)
+      return
+    }
+
+    window.location.href = path
   }
 
   const displayName =
@@ -50,36 +56,29 @@ export default function Topbar({ isPro = false, user, onLogout }) {
     user?.email?.split('@')[0] ||
     'User'
 
-  const quickActions = [
+  const messages = [
     {
-      label: 'Create Invoice',
-      description: 'Open invoices and create a demo invoice',
-      icon: FileText,
-      path: '/invoices',
+      title: 'Welcome to Fildemora Pro',
+      text: 'Your business command center is ready.',
     },
     {
-      label: 'Add Job',
-      description: 'Go to job management',
-      icon: Briefcase,
-      path: '/jobs',
+      title: 'User Guide Available',
+      text: 'Open the User Guide from the sidebar for help.',
+    },
+  ]
+
+  const notifications = [
+    {
+      title: 'Payroll Review',
+      text: 'Review employee hours before approving payroll.',
     },
     {
-      label: 'Add Employee',
-      description: 'Open employee management',
-      icon: UserPlus,
-      path: '/employees',
+      title: 'QuickBooks',
+      text: 'Connect QuickBooks to sync invoices and customers.',
     },
     {
-      label: 'Open Schedule',
-      description: 'Review upcoming service work',
-      icon: CalendarPlus,
-      path: '/scheduling',
-    },
-    {
-      label: 'Connect QuickBooks',
-      description: 'Connect client accounting account',
-      icon: PlugZap,
-      path: '/integrations/quickbooks',
+      title: 'Branding',
+      text: 'Add your company logo after Pro access is active.',
     },
   ]
 
@@ -100,28 +99,130 @@ export default function Topbar({ isPro = false, user, onLogout }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <button
           type="button"
-          className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+          onClick={() => goTo('/invoices')}
+          className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50 lg:flex"
         >
-          <Mail size={17} />
+          <FileText size={15} />
+          Invoices
         </button>
 
         <button
           type="button"
-          className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+          onClick={() => goTo('/employees')}
+          className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50 lg:flex"
         >
-          <Bell size={17} />
-          <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-black text-white">
-            3
-          </span>
+          <UserPlus size={15} />
+          Employees
         </button>
+
+        <button
+          type="button"
+          onClick={() => goTo('/user-guide')}
+          className="hidden items-center gap-2 rounded-xl bg-green-800 px-3 py-2 text-xs font-black text-white hover:bg-green-700 lg:flex"
+        >
+          <BookOpen size={15} />
+          User Guide
+        </button>
+
+        <div className="relative" ref={messagesRef}>
+          <button
+            type="button"
+            onClick={() => {
+              setMessagesOpen((current) => !current)
+              setNotificationsOpen(false)
+              setUserOpen(false)
+            }}
+            className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+            title="Messages"
+          >
+            <Mail size={17} />
+          </button>
+
+          {messagesOpen && (
+            <div className="absolute right-0 mt-3 w-80 overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-xl z-50">
+              <div className="border-b border-slate-100 px-4 py-3">
+                <p className="text-sm font-black text-slate-900">Messages</p>
+                <p className="text-xs text-slate-500">
+                  Helpful updates for your workspace.
+                </p>
+              </div>
+
+              <div className="p-2">
+                {messages.map((message) => (
+                  <div
+                    key={message.title}
+                    className="rounded-xl px-3 py-3 hover:bg-slate-50"
+                  >
+                    <p className="text-sm font-black text-slate-900">
+                      {message.title}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                      {message.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="relative" ref={notificationsRef}>
+          <button
+            type="button"
+            onClick={() => {
+              setNotificationsOpen((current) => !current)
+              setMessagesOpen(false)
+              setUserOpen(false)
+            }}
+            className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+            title="Notifications"
+          >
+            <Bell size={17} />
+
+            <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-black text-white">
+              3
+            </span>
+          </button>
+
+          {notificationsOpen && (
+            <div className="absolute right-0 mt-3 w-80 overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-xl z-50">
+              <div className="border-b border-slate-100 px-4 py-3">
+                <p className="text-sm font-black text-slate-900">Notifications</p>
+                <p className="text-xs text-slate-500">
+                  Business reminders and important actions.
+                </p>
+              </div>
+
+              <div className="p-2">
+                {notifications.map((notification) => (
+                  <div
+                    key={notification.title}
+                    className="rounded-xl px-3 py-3 hover:bg-slate-50"
+                  >
+                    <p className="text-sm font-black text-slate-900">
+                      {notification.title}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                      {notification.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="relative" ref={userMenuRef}>
           <button
             type="button"
-            onClick={() => setUserOpen((current) => !current)}
+            onClick={() => {
+              setUserOpen((current) => !current)
+              setMessagesOpen(false)
+              setNotificationsOpen(false)
+            }}
             className="flex items-center gap-2 rounded-xl px-2 py-1 hover:bg-slate-50"
           >
             <div className="text-right leading-tight max-sm:hidden">
@@ -148,7 +249,7 @@ export default function Topbar({ isPro = false, user, onLogout }) {
           </button>
 
           {userOpen && (
-            <div className="absolute right-0 mt-3 w-64 overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-xl">
+            <div className="absolute right-0 mt-3 w-64 overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-xl z-50">
               <div className="border-b border-slate-100 px-4 py-3">
                 <p className="text-sm font-black text-slate-900">{displayName}</p>
                 <p className="text-xs font-semibold text-slate-500">{user?.email}</p>
@@ -162,60 +263,6 @@ export default function Topbar({ isPro = false, user, onLogout }) {
                 <LogOut size={16} />
                 Logout
               </button>
-            </div>
-          )}
-        </div>
-
-        <div className="relative" ref={menuRef}>
-          <button
-            type="button"
-            onClick={() => setQuickOpen((current) => !current)}
-            className="flex items-center gap-2 rounded-xl bg-[#0f1c2e] px-4 py-2.5 text-sm font-black text-white hover:bg-[#1a2a3f]"
-          >
-            Quick action
-            {quickOpen ? (
-              <X size={17} className="rounded-md bg-white/10 p-0.5" />
-            ) : (
-              <Plus size={17} className="rounded-md bg-white/10 p-0.5" />
-            )}
-          </button>
-
-          {quickOpen && (
-            <div className="absolute right-0 mt-3 w-80 overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-xl">
-              <div className="border-b border-slate-100 px-4 py-3">
-                <p className="text-sm font-black text-slate-900">Quick Actions</p>
-                <p className="text-xs text-slate-500">
-                  Jump into the most used manager workflows.
-                </p>
-              </div>
-
-              <div className="p-2">
-                {quickActions.map((action) => {
-                  const Icon = action.icon
-
-                  return (
-                    <button
-                      key={action.label}
-                      type="button"
-                      onClick={() => navigate(action.path)}
-                      className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left hover:bg-slate-50"
-                    >
-                      <div className="rounded-xl bg-[#fff5bf] p-2">
-                        <Icon size={17} className="text-[#0f1c2e]" />
-                      </div>
-
-                      <div>
-                        <p className="text-sm font-black text-slate-900">
-                          {action.label}
-                        </p>
-                        <p className="text-xs font-semibold text-slate-500">
-                          {action.description}
-                        </p>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
             </div>
           )}
         </div>
