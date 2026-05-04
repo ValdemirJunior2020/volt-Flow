@@ -1,5 +1,5 @@
 {
-  "name": "voltflow-dashboard",
+  "name": "fildemora-pro",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
@@ -8,6 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@paypal/react-paypal-js": "^9.2.0",
     "@supabase/supabase-js": "^2.105.1",
     "lucide-react": "^0.383.0",
     "react": "^18.2.0",

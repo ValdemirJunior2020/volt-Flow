@@ -19,12 +19,28 @@ import SubscriptionPage from './pages/SubscriptionPage'
 import UserGuidePage from './pages/UserGuidePage'
 import LoginPage from './pages/LoginPage'
 import { supabase } from './lib/supabaseClient'
+import { paypalSubscriptionService } from './services/paypalSubscriptionService'
 
 export default function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname)
   const [session, setSession] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [isPro, setIsPro] = useState(false)
+
+  async function refreshProStatus(currentSession = session) {
+    if (!currentSession?.access_token) {
+      setIsPro(false)
+      return
+    }
+
+    try {
+      const result = await paypalSubscriptionService.getMySubscription()
+      setIsPro(result.subscription?.status === 'active')
+    } catch (error) {
+      console.warn('Unable to verify subscription status:', error)
+      setIsPro(false)
+    }
+  }
 
   useEffect(() => {
     async function loadSession() {
@@ -34,15 +50,20 @@ export default function App() {
 
       setSession(currentSession)
       setAuthLoading(false)
+
+      if (currentSession) {
+        await refreshProStatus(currentSession)
+      }
     }
 
     loadSession()
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, currentSession) => {
+    } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       setSession(currentSession)
       setAuthLoading(false)
+      await refreshProStatus(currentSession)
     })
 
     return () => {
@@ -55,25 +76,20 @@ export default function App() {
       setCurrentPath(window.location.pathname)
     }
 
-    function syncProStatus() {
-      const localPaid = localStorage.getItem('voltflow_subscription_active') === 'true'
-      const localDemo = localStorage.getItem('fieldora_pro_active') === 'true'
-
-      setIsPro(localPaid || localDemo)
+    function handleSubscriptionUpdated() {
+      refreshProStatus()
     }
 
-    syncProStatus()
-
     window.addEventListener('popstate', handlePopState)
-    window.addEventListener('storage', syncProStatus)
-    window.addEventListener('focus', syncProStatus)
+    window.addEventListener('focus', handleSubscriptionUpdated)
+    window.addEventListener('fildemora:subscription-updated', handleSubscriptionUpdated)
 
     return () => {
       window.removeEventListener('popstate', handlePopState)
-      window.removeEventListener('storage', syncProStatus)
-      window.removeEventListener('focus', syncProStatus)
+      window.removeEventListener('focus', handleSubscriptionUpdated)
+      window.removeEventListener('fildemora:subscription-updated', handleSubscriptionUpdated)
     }
-  }, [])
+  }, [session])
 
   function navigate(path) {
     window.history.pushState({}, '', path)

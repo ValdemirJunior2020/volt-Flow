@@ -1,261 +1,385 @@
-// client/src/pages/SubscriptionPage.jsx
+// C:\Users\Valdemir Goncalves\Downloads\Projetos Maio\Fildemora Pro\client\src\pages\SubscriptionPage.jsx
+
 import React, { useEffect, useState } from 'react'
-import PageHeader from '../components/business/PageHeader'
-import KpiCard from '../components/business/KpiCard'
 import {
+  PayPalButtons,
+  PayPalScriptProvider,
+  usePayPalScriptReducer,
+} from '@paypal/react-paypal-js'
+import {
+  BadgeCheck,
   CheckCircle2,
   CreditCard,
-  Crown,
   Loader2,
   Lock,
   ShieldCheck,
-  XCircle,
+  Sparkles,
 } from 'lucide-react'
-import { subscriptionService } from '../services/subscriptionService'
+import PageHeader from '../components/business/PageHeader'
+import KpiCard from '../components/business/KpiCard'
+import { paypalSubscriptionService } from '../services/paypalSubscriptionService'
+
+const paypalClientId = import.meta.env.VITE_PAYPAL_CLIENT_ID
+const localPlanId = import.meta.env.VITE_PAYPAL_PLAN_ID
+
+function PayPalSubscriptionBox({
+  planId,
+  confirming,
+  onApproved,
+  onErrorMessage,
+}) {
+  const [{ isPending, isRejected }] = usePayPalScriptReducer()
+
+  if (isPending) {
+    return (
+      <div className="flex items-center gap-2 rounded-xl bg-white p-3 text-xs font-bold text-slate-600">
+        <Loader2 size={16} className="animate-spin" />
+        Loading PayPal buttons...
+      </div>
+    )
+  }
+
+  if (isRejected) {
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">
+        PayPal failed to load. Check that your PayPal Client ID and Plan ID are both Sandbox or both Live.
+      </div>
+    )
+  }
+
+  return (
+    <PayPalButtons
+      forceReRender={[planId]}
+      style={{
+        shape: 'rect',
+        layout: 'vertical',
+        color: 'gold',
+        label: 'subscribe',
+      }}
+      disabled={confirming}
+      createSubscription={(data, actions) => {
+        return actions.subscription.create({
+          plan_id: planId,
+        })
+      }}
+      onApprove={onApproved}
+      onError={(error) => {
+        console.error('PayPal subscription error:', error)
+        onErrorMessage(
+          'PayPal subscription failed. Check that your Client ID and Plan ID are from the same PayPal environment.'
+        )
+      }}
+    />
+  )
+}
 
 export default function SubscriptionPage() {
+  const [planId, setPlanId] = useState(localPlanId || '')
+  const [loading, setLoading] = useState(false)
+  const [confirming, setConfirming] = useState(false)
   const [subscription, setSubscription] = useState(null)
-  const [paypalConfig, setPayPalConfig] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [working, setWorking] = useState(false)
   const [message, setMessage] = useState('')
+  const [paypalError, setPaypalError] = useState('')
+  const [cancelling, setCancelling] = useState(false)
 
   useEffect(() => {
     loadSubscriptionPage()
-    captureReturnPayment()
   }, [])
 
-  async function captureReturnPayment() {
-    const params = new URLSearchParams(window.location.search)
-    const token = params.get('token')
-    const paypalSuccess = params.get('paypal')
-
-    if (!token || paypalSuccess !== 'success') return
-
-    try {
-      setWorking(true)
-      setMessage('Confirming PayPal payment...')
-
-      const result = await subscriptionService.captureOrder(token)
-
-      setSubscription(result.subscription)
-      setMessage('Payment complete. Full access unlocked for 4 months.')
-
-      window.history.replaceState({}, '', '/subscription')
-    } catch (error) {
-      setMessage(error.message || 'Unable to confirm PayPal payment.')
-    } finally {
-      setWorking(false)
-    }
-  }
-
   async function loadSubscriptionPage() {
+    setLoading(true)
+    setMessage('')
+    setPaypalError('')
+
     try {
-      setLoading(true)
+      const configResult = await paypalSubscriptionService.getConfig()
+      const finalPlanId = configResult?.planId || localPlanId || ''
 
-      const [statusResult, configResult] = await Promise.all([
-        subscriptionService.getStatus(),
-        subscriptionService.getPayPalConfig(),
-      ])
+      setPlanId(finalPlanId)
 
-      setSubscription(statusResult.subscription)
-      setPayPalConfig(configResult.config)
+      try {
+        const subscriptionResult = await paypalSubscriptionService.getMySubscription()
+        setSubscription(subscriptionResult.subscription)
+      } catch (error) {
+        console.warn('Subscription check skipped:', error.message)
+        setSubscription(null)
+      }
     } catch (error) {
-      setMessage(error.message || 'Unable to load subscription status.')
+      console.error('Unable to load subscription page:', error)
+      setPlanId(localPlanId || '')
+      setSubscription(null)
+      setMessage(error.message || 'Unable to load subscription information.')
     } finally {
       setLoading(false)
     }
   }
 
-  async function handlePayWithPayPal() {
+  async function handleSubscriptionApproved(data) {
     try {
-      setWorking(true)
-      setMessage('Creating secure PayPal checkout...')
+      setConfirming(true)
+      setMessage('Confirming your PayPal subscription...')
+      setPaypalError('')
 
-      const result = await subscriptionService.createOrder()
+      const result = await paypalSubscriptionService.confirmSubscription(data.subscriptionID)
 
-      if (!result.order?.approvalLink) {
-        throw new Error('PayPal approval link was not returned.')
-      }
+      setSubscription({
+        status: 'active',
+        amount: 70,
+        currency: 'USD',
+        paypalSubscriptionId: data.subscriptionID,
+        trialEndsAt: result.company?.subscription_trial_ends_at,
+        nextBillingAt: result.paypalSubscription?.nextBillingAt,
+      })
 
-      window.location.href = result.order.approvalLink
+      window.dispatchEvent(new Event('fildemora:subscription-updated'))
+
+      setMessage(
+        'Success! Your $20 first-week access is active. After the first week, your plan continues at $70/month.'
+      )
     } catch (error) {
-      setMessage(error.message || 'Unable to start PayPal checkout.')
+      setMessage(error.message || 'Subscription confirmation failed.')
     } finally {
-      setWorking(false)
+      setConfirming(false)
     }
   }
 
-  async function handleCancelAccess() {
+  async function handleCancelSubscription() {
+    const confirmed = window.confirm(
+      'Are you sure you want to cancel your Fildemora Pro subscription?'
+    )
+
+    if (!confirmed) return
+
     try {
-      setWorking(true)
-      setMessage('Cancelling access...')
+      setCancelling(true)
+      setMessage('Cancelling your subscription...')
+      setPaypalError('')
 
-      const result = await subscriptionService.cancel()
-
-      setSubscription(result.subscription)
-      setMessage('Access cancelled.')
+      await paypalSubscriptionService.cancelSubscription()
+      await loadSubscriptionPage()
+      window.dispatchEvent(new Event('fildemora:subscription-updated'))
+      setMessage('Subscription cancelled successfully.')
     } catch (error) {
-      setMessage(error.message || 'Unable to cancel access.')
+      setMessage(error.message || 'Unable to cancel subscription.')
     } finally {
-      setWorking(false)
+      setCancelling(false)
     }
   }
 
-  async function handleDemoActivate() {
-    try {
-      setWorking(true)
+  const isActive = subscription?.status === 'active'
 
-      const result = await subscriptionService.activateDemo()
-
-      setSubscription(result.subscription)
-      setMessage('Demo access activated for 4 months.')
-    } catch (error) {
-      setMessage(error.message || 'Unable to activate demo access.')
-    } finally {
-      setWorking(false)
-    }
+  if (!paypalClientId) {
+    return (
+      <div className="p-4 sm:p-5">
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm font-black text-red-700">
+          Missing VITE_PAYPAL_CLIENT_ID in client .env.
+        </div>
+      </div>
+    )
   }
-
-  const isActive = subscription?.active || subscription?.status === 'ACTIVE'
 
   return (
     <div className="p-4 sm:p-5 space-y-5">
       <PageHeader
-        eyebrow="Billing"
-        title="Fieldora Pro Access"
-        description="Unlock full software access with a one-time $500 payment for 4 months."
-        primaryLabel={isActive ? 'Access Active' : 'Pay $500'}
-        secondaryLabel="Refresh Status"
-        onPrimaryClick={isActive ? loadSubscriptionPage : handlePayWithPayPal}
-        onSecondaryClick={loadSubscriptionPage}
+        eyebrow="Subscription"
+        title="Fildemora Pro Access"
+        description="Start with $20 for the first week. After that, continue with full Pro access for $70/month."
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <KpiCard
-          icon={isActive ? CheckCircle2 : XCircle}
-          label="Access"
-          value={isActive ? 'Unlocked' : 'Locked'}
-          sub="Full software access"
+          icon={CreditCard}
+          label="First Week"
+          value="$20"
+          sub="7-day starter access"
         />
-        <KpiCard icon={CreditCard} label="Payment" value="$500" sub="One-time payment" />
-        <KpiCard icon={Crown} label="Access Length" value="4 Months" sub="Expires automatically" />
-        <KpiCard icon={ShieldCheck} label="Provider" value="PayPal" sub="Secure checkout" />
+        <KpiCard
+          icon={BadgeCheck}
+          label="After First Week"
+          value="$70/mo"
+          sub="Monthly Pro access"
+        />
+        <KpiCard
+          icon={ShieldCheck}
+          label="Payment"
+          value="PayPal"
+          sub="Secure checkout"
+        />
+        <KpiCard
+          icon={Lock}
+          label="Premium Tools"
+          value={isActive ? 'Unlocked' : 'Locked'}
+          sub="Based on subscription"
+        />
       </div>
 
       {message && (
         <div
           className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${
-            message.toLowerCase().includes('failed') ||
-            message.toLowerCase().includes('unable') ||
-            message.toLowerCase().includes('cancelled')
-              ? 'border-amber-200 bg-amber-50 text-amber-800'
-              : 'border-green-200 bg-green-50 text-green-700'
+            message.toLowerCase().includes('success') ||
+            message.toLowerCase().includes('active')
+              ? 'border-green-200 bg-green-50 text-green-700'
+              : 'border-amber-200 bg-amber-50 text-amber-800'
           }`}
         >
           {message}
         </div>
       )}
 
-      <section className="rounded-2xl bg-white border border-slate-100 shadow-sm p-5">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <p className="text-xs font-bold uppercase text-slate-400">Current Access</p>
+      {paypalError && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+          {paypalError}
+        </div>
+      )}
 
-            <h2 className="mt-1 text-2xl font-black text-slate-900">
-              {isActive ? 'Fieldora Pro Active' : 'Fieldora Pro Locked'}
+      <section className="rounded-3xl bg-white border border-slate-100 shadow-sm overflow-hidden">
+        <div className="grid grid-cols-1 xl:grid-cols-2">
+          <div className="p-6 sm:p-8">
+            <div className="inline-flex items-center gap-2 rounded-full bg-green-100 px-4 py-2 text-xs font-black uppercase tracking-wide text-green-700">
+              <Sparkles size={15} />
+              Starter + Pro Plan
+            </div>
+
+            <h2 className="mt-5 text-3xl font-black text-[#0f1c2e]">
+              $20 first week, then $70/month
             </h2>
 
-            <p className="mt-2 max-w-2xl text-sm text-slate-500">
-              Full access includes jobs, invoices, payroll command center, employees,
-              reports, exports, company branding, and optional QuickBooks accounting sync.
+            <p className="mt-2 text-sm font-semibold text-slate-600">
+              Give your company one week to try Fildemora Pro for $20. After the first week,
+              the subscription continues automatically at $70 per month.
             </p>
 
-            <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-4">
-              <p className="text-sm font-black text-slate-900">Access Status</p>
-
-              <p className="mt-1 text-sm text-slate-600">
-                Status:{' '}
-                <span className="font-black text-[#0f1c2e]">
-                  {loading ? 'Loading...' : subscription?.status || 'INACTIVE'}
-                </span>
-              </p>
-
-              {subscription?.orderId && (
-                <p className="mt-1 text-xs text-slate-500">
-                  PayPal Order: {subscription.orderId}
-                </p>
-              )}
-
-              {subscription?.expiresAt && (
-                <p className="mt-1 text-xs text-slate-500">
-                  Expires: {new Date(subscription.expiresAt).toLocaleString()}
-                </p>
-              )}
-
-              {isActive && (
-                <p className="mt-1 text-xs font-black text-green-700">
-                  Days remaining: {subscription.daysRemaining}
-                </p>
-              )}
+            <div className="mt-6 space-y-3">
+              {[
+                'Company dashboard',
+                'Employee and payroll tools',
+                'Invoice and customer tools',
+                'Company branding',
+                'Reports and exports',
+                'QuickBooks integration access',
+                'User guide and business workflow support',
+              ].map((feature) => (
+                <div key={feature} className="flex items-center gap-3">
+                  <CheckCircle2 size={18} className="text-green-600" />
+                  <span className="text-sm font-bold text-slate-700">{feature}</span>
+                </div>
+              ))}
             </div>
           </div>
 
-          <div className="w-full max-w-md rounded-2xl border border-[#f5d000]/50 bg-[#fff9d6] p-5">
-            <div className="flex items-center gap-3">
-              <div className="rounded-2xl bg-[#0f1c2e] p-3">
-                {isActive ? (
-                  <CheckCircle2 className="text-[#f5d000]" size={24} />
-                ) : (
-                  <Lock className="text-[#f5d000]" size={24} />
-                )}
+          <div className="border-t border-slate-100 bg-slate-50 p-6 sm:p-8 xl:border-l xl:border-t-0">
+            {loading && (
+              <div className="mb-4 flex items-center justify-center gap-2 rounded-2xl bg-white p-4 text-sm font-bold text-slate-600">
+                <Loader2 size={18} className="animate-spin" />
+                Checking current subscription...
               </div>
+            )}
 
-              <div>
-                <h3 className="text-xl font-black text-[#0f1c2e]">$500</h3>
-                <p className="text-sm font-semibold text-slate-600">
-                  One-time payment for 4 months full access.
+            {isActive ? (
+              <div className="rounded-3xl border border-green-200 bg-green-50 p-6">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-green-600 p-3">
+                    <BadgeCheck className="text-white" size={26} />
+                  </div>
+
+                  <div>
+                    <h3 className="text-xl font-black text-green-900">Pro is active</h3>
+                    <p className="text-sm font-semibold text-green-700">
+                      Your company has premium access.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-2xl bg-white p-4 text-sm font-semibold text-slate-700">
+                  <p><strong>First week:</strong> $20</p>
+                  <p><strong>After first week:</strong> $70/month</p>
+                  <p><strong>Status:</strong> Active</p>
+
+                  {subscription?.paypalSubscriptionId && (
+                    <p><strong>PayPal ID:</strong> {subscription.paypalSubscriptionId}</p>
+                  )}
+
+                  {subscription?.trialEndsAt && (
+                    <p>
+                      <strong>First week ends:</strong>{' '}
+                      {new Date(subscription.trialEndsAt).toLocaleDateString()}
+                    </p>
+                  )}
+
+                  {subscription?.nextBillingAt && (
+                    <p>
+                      <strong>Next billing:</strong>{' '}
+                      {new Date(subscription.nextBillingAt).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleCancelSubscription}
+                  disabled={cancelling}
+                  className="mt-5 w-full rounded-2xl border border-red-200 bg-white px-4 py-3 text-sm font-black text-red-700 shadow-sm transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {cancelling ? 'Cancelling Subscription...' : 'Cancel Subscription'}
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-3xl border border-slate-200 bg-white p-5">
+                <h3 className="text-lg font-black text-[#0f1c2e]">
+                  Start Fildemora Pro
+                </h3>
+
+                <p className="mt-1 text-sm font-semibold text-slate-500">
+                  Pay $20 for the first week. Continue at $70/month after that.
                 </p>
-              </div>
-            </div>
 
-            {!isActive && (
-              <div className="mt-5 space-y-3">
-                <button
-                  type="button"
-                  onClick={handlePayWithPayPal}
-                  disabled={working}
-                  className="w-full rounded-xl bg-[#f5d000] px-5 py-3 text-sm font-black text-[#0f1c2e] disabled:opacity-60"
-                >
-                  {working ? 'Opening PayPal...' : 'Pay $500 with PayPal'}
-                </button>
+                <div className="mt-4 rounded-2xl bg-[#fff9d6] border border-[#f5d000]/50 p-4">
+                  <p className="text-sm font-black text-[#0f1c2e]">Plan ID</p>
+                  <p className="mt-1 break-all text-xs font-semibold text-slate-600">
+                    {planId || 'Missing PayPal Plan ID'}
+                  </p>
+                </div>
 
-                <button
-                  type="button"
-                  onClick={handleDemoActivate}
-                  disabled={working}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 disabled:opacity-60"
-                >
-                  Activate Demo Access
-                </button>
-              </div>
-            )}
+                {!planId ? (
+                  <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800">
+                    Missing PayPal Plan ID. Add VITE_PAYPAL_PLAN_ID to your client .env and PAYPAL_PLAN_ID to your server .env.
+                  </div>
+                ) : (
+                  <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="mb-4">
+                      <p className="text-sm font-black text-slate-900">
+                        Pay with PayPal
+                      </p>
+                      <p className="text-xs font-semibold text-slate-500">
+                        The PayPal subscription buttons should appear below.
+                      </p>
+                    </div>
 
-            {isActive && (
-              <button
-                type="button"
-                onClick={handleCancelAccess}
-                disabled={working}
-                className="mt-5 w-full rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-black text-red-700 disabled:opacity-60"
-              >
-                {working ? 'Working...' : 'Cancel Access'}
-              </button>
-            )}
+                    <PayPalScriptProvider
+                      options={{
+                        'client-id': paypalClientId,
+                        vault: true,
+                        intent: 'subscription',
+                        currency: 'USD',
+                        components: 'buttons',
+                      }}
+                    >
+                      <PayPalSubscriptionBox
+                        planId={planId}
+                        confirming={confirming}
+                        onApproved={handleSubscriptionApproved}
+                        onErrorMessage={setPaypalError}
+                      />
+                    </PayPalScriptProvider>
+                  </div>
+                )}
 
-            {working && (
-              <div className="mt-3 flex items-center gap-2 text-sm font-semibold text-slate-600">
-                <Loader2 size={16} className="animate-spin" />
-                Processing...
+                {confirming && (
+                  <div className="mt-4 flex items-center justify-center gap-2 rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-600">
+                    <Loader2 size={18} className="animate-spin" />
+                    Activating your subscription...
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react'
 import PageHeader from '../components/business/PageHeader'
 import KpiCard from '../components/business/KpiCard'
 import { Crown, ImagePlus, Lock, Save, Upload, Building2 } from 'lucide-react'
+import { paypalSubscriptionService } from '../services/paypalSubscriptionService'
 
 const DEFAULT_COMPANY_PROFILE = {
   companyName: 'Fildemora Pro',
@@ -20,10 +21,18 @@ export default function CompanyBrandingPage() {
   const [message, setMessage] = useState('')
 
   useEffect(() => {
-    const savedSubscription = localStorage.getItem('voltflow_subscription_active')
+    async function loadSubscription() {
+      try {
+        const result = await paypalSubscriptionService.getMySubscription()
+        setIsSubscribed(result.subscription?.status === 'active')
+      } catch {
+        setIsSubscribed(false)
+      }
+    }
+
     const savedProfile = localStorage.getItem('voltflow_company_profile')
 
-    setIsSubscribed(savedSubscription === 'true')
+    loadSubscription()
 
     if (savedProfile) {
       const parsedProfile = JSON.parse(savedProfile)
@@ -99,18 +108,6 @@ export default function CompanyBrandingPage() {
     setMessage('Default Fildemora Pro logo restored.')
   }
 
-  function handleActivateDemoSubscription() {
-    localStorage.setItem('voltflow_subscription_active', 'true')
-    setIsSubscribed(true)
-    setMessage('Demo paid access activated for testing. Branding tools are now unlocked.')
-  }
-
-  function handleCancelDemoSubscription() {
-    localStorage.setItem('voltflow_subscription_active', 'false')
-    setIsSubscribed(false)
-    setMessage('Demo paid access disabled. Branding tools are locked again.')
-  }
-
   return (
     <div className="p-4 sm:p-5 space-y-5">
       <PageHeader
@@ -177,10 +174,10 @@ export default function CompanyBrandingPage() {
 
             <button
               type="button"
-              onClick={handleActivateDemoSubscription}
+              onClick={() => { window.history.pushState({}, '', '/subscription'); window.dispatchEvent(new PopStateEvent('popstate')) }}
               className="rounded-xl bg-[#0f1c2e] px-5 py-3 text-sm font-black text-white hover:bg-[#1a2a3f]"
             >
-              Activate Demo Paid Access
+              Go to Subscription
             </button>
           </div>
         </section>
@@ -198,10 +195,10 @@ export default function CompanyBrandingPage() {
 
             <button
               type="button"
-              onClick={handleCancelDemoSubscription}
+              onClick={() => { window.history.pushState({}, '', '/subscription'); window.dispatchEvent(new PopStateEvent('popstate')) }}
               className="rounded-xl border border-green-300 bg-white px-5 py-3 text-sm font-black text-green-700 hover:bg-green-100"
             >
-              Disable Demo Paid Access
+              Manage Subscription
             </button>
           </div>
         </section>

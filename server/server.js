@@ -11,7 +11,10 @@ import payrollRoutes from './src/routes/payroll.routes.js'
 import paypalRoutes from './src/routes/paypal.routes.js'
 import subscriptionRoutes from './src/routes/subscription.routes.js'
 import employeeRoutes from './src/routes/employee.routes.js'
+import paypalSubscriptionRoutes from './src/routes/paypalSubscription.routes.js'
+import webhooksRoutes from './src/routes/webhooks.routes.js'
 import { requireAuth } from './src/middleware/requireAuth.js'
+import { requireSubscription } from './src/middleware/requireSubscription.js'
 
 dotenv.config()
 
@@ -40,7 +43,12 @@ app.use(
 )
 
 app.use(helmet())
-app.use(express.json({ limit: '10mb' }))
+app.use(express.json({
+  limit: '10mb',
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString('utf8')
+  },
+}))
 
 app.use(
   rateLimit({
@@ -56,10 +64,13 @@ app.get('/', (req, res) => {
   })
 })
 
-app.use('/api/v1/employees', requireAuth, employeeRoutes)
-app.use('/api/v1/quickbooks/payroll', requireAuth, payrollRoutes)
-app.use('/api/v1/sync-logs', requireAuth, syncLogRoutes)
-app.use('/api/v1/subscription', requireAuth, subscriptionRoutes)
+app.use('/api/v1/paypal-subscription', paypalSubscriptionRoutes)
+app.use('/api/v1/webhooks', webhooksRoutes)
+
+app.use('/api/v1/employees', requireAuth, requireSubscription, employeeRoutes)
+app.use('/api/v1/quickbooks/payroll', requireAuth, requireSubscription, payrollRoutes)
+app.use('/api/v1/sync-logs', requireAuth, requireSubscription, syncLogRoutes)
+app.use('/api/v1/subscription', requireAuth, requireSubscription, subscriptionRoutes)
 
 app.use('/api/v1/quickbooks', quickBooksRoutes)
 app.use('/api/v1/paypal', paypalRoutes)
