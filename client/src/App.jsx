@@ -1,6 +1,7 @@
 // C:\Users\Valdemir Goncalves\Downloads\Projetos Maio\Fildemora Pro\client\src\App.jsx
 import React, { useEffect, useMemo, useState } from 'react'
 import Sidebar from './components/Sidebar'
+import AuthLinkNotice from './components/AuthLinkNotice'
 import Topbar from './components/Topbar'
 import Dashboard from './pages/Dashboard'
 import JobsPage from './pages/JobsPage'
@@ -130,9 +131,14 @@ export default function App() {
     )
   }
 
-  if (!session) {
-    return <LoginPage />
-  }
+ if (!session) {
+  return (
+    <>
+      <AuthLinkNotice />
+      <LoginPage />
+    </>
+  )
+}
 
   return (
     <div className="min-h-screen bg-[#f0f2f5] font-sans">
