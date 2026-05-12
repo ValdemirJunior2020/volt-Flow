@@ -1,4 +1,5 @@
 // C:\Users\Valdemir Goncalves\Downloads\Projetos Maio\Fildemora Pro\client\src\App.jsx
+
 import React, { useEffect, useMemo, useState } from 'react'
 import Sidebar from './components/Sidebar'
 import AuthLinkNotice from './components/AuthLinkNotice'
@@ -19,6 +20,7 @@ import CompanyBrandingPage from './pages/CompanyBrandingPage'
 import SubscriptionPage from './pages/SubscriptionPage'
 import UserGuidePage from './pages/UserGuidePage'
 import LoginPage from './pages/LoginPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import { supabase } from './lib/supabaseClient'
 import { paypalSubscriptionService } from './services/paypalSubscriptionService'
 
@@ -64,7 +66,12 @@ export default function App() {
     } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       setSession(currentSession)
       setAuthLoading(false)
-      await refreshProStatus(currentSession)
+
+      if (currentSession) {
+        await refreshProStatus(currentSession)
+      } else {
+        setIsPro(false)
+      }
     })
 
     return () => {
@@ -78,7 +85,9 @@ export default function App() {
     }
 
     function handleSubscriptionUpdated() {
-      refreshProStatus()
+      if (session) {
+        refreshProStatus(session)
+      }
     }
 
     window.addEventListener('popstate', handlePopState)
@@ -131,14 +140,18 @@ export default function App() {
     )
   }
 
- if (!session) {
-  return (
-    <>
-      <AuthLinkNotice />
-      <LoginPage />
-    </>
-  )
-}
+  if (currentPath === '/reset-password') {
+    return <ResetPasswordPage />
+  }
+
+  if (!session) {
+    return (
+      <>
+        <AuthLinkNotice />
+        <LoginPage />
+      </>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-[#f0f2f5] font-sans">
